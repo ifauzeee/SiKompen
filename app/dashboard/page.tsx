@@ -12,6 +12,7 @@ interface AdminStats {
     totalStudents: number;
     activeJobs: number;
     pendingValidations: number;
+    totalIncome: number;
 }
 
 interface SupervisorStats {
@@ -58,10 +59,25 @@ async function getDashboardData() {
 
     if (!user) return null;
 
-    if (user.role === 'ADMIN') {
+    const { password, ...userWithoutPassword } = user;
+    const cleanUser = userWithoutPassword as unknown as User;
+
+    if (cleanUser.role === 'KEUANGAN') {
+        return {
+            role: 'KEUANGAN',
+            user: { ...cleanUser, role: 'KEUANGAN' }
+        };
+    }
+
+    if (cleanUser.role === 'ADMIN') {
         const totalStudents = await prisma.user.count({ where: { role: 'MAHASISWA' } });
         const activeJobs = await prisma.job.count({ where: { status: 'OPEN' } });
         const pendingValidations = await prisma.jobApplication.count({ where: { status: 'PENDING' } });
+
+        const totalIncome = await (prisma as any).payment.aggregate({
+            _sum: { amount: true },
+            where: { status: 'APPROVED' }
+        }).then((res: any) => res._sum.amount || 0);
 
         const pendingApps = await getApplicationsByStatus('PENDING');
         const acceptedApps = await getApplicationsByStatus('ACCEPTED');
@@ -75,11 +91,12 @@ async function getDashboardData() {
 
         return {
             role: 'ADMIN',
-            user: { ...user, role: 'ADMIN' },
+            user: { ...cleanUser, role: 'ADMIN' },
             adminStats: {
                 totalStudents,
                 activeJobs,
-                pendingValidations
+                pendingValidations,
+                totalIncome
             },
             applications: pendingApps,
             acceptedApplications: acceptedApps,
@@ -87,22 +104,22 @@ async function getDashboardData() {
         };
     }
 
-    if (user.role === 'PENGAWAS') {
-        const myJobs = await prisma.job.count({ where: { createdById: user.id } });
+    if (cleanUser.role === 'PENGAWAS') {
+        const myJobs = await prisma.job.count({ where: { createdById: cleanUser.id } });
 
         const pendingValidations = await prisma.jobApplication.count({
             where: {
                 status: 'PENDING',
-                job: { createdById: user.id }
+                job: { createdById: cleanUser.id }
             }
         });
 
-        const pendingApps = await getApplicationsByStatus('PENDING', user.id);
-        const acceptedApps = await getApplicationsByStatus('ACCEPTED', user.id);
+        const pendingApps = await getApplicationsByStatus('PENDING', cleanUser.id);
+        const acceptedApps = await getApplicationsByStatus('ACCEPTED', cleanUser.id);
 
         return {
             role: 'PENGAWAS',
-            user: { ...user, role: 'PENGAWAS' },
+            user: { ...cleanUser, role: 'PENGAWAS' },
             supervisorStats: {
                 myJobs,
                 pendingValidations
@@ -150,21 +167,19 @@ async function getDashboardData() {
         };
     });
 
-    if (user.totalHours > 20) {
+    if (cleanUser.totalHours > 20) {
         activities.unshift({
             id: 999,
             type: 'WARNING',
             title: 'Peringatan Kompen',
-            desc: `Sisa tanggungan Anda ${user.totalHours} jam. Segera selesaikan sebelum semester berakhir!`,
+            desc: `Sisa tanggungan Anda ${cleanUser.totalHours} jam. Segera selesaikan sebelum semester berakhir!`,
             time: 'Hari ini'
         });
     }
 
-
-
     return {
         role: 'MAHASISWA',
-        user: { ...user, role: 'MAHASISWA' },
+        user: { ...cleanUser, role: 'MAHASISWA' },
         stats: {
             completedHours,
             activeJobs: activeApps.length,
@@ -181,7 +196,11 @@ export default async function DashboardPage() {
         redirect('/login');
     }
 
-    const dashboardData = data as DashboardData;
+    const dashboardData = data as DashboardData | { role: 'KEUANGAN'; user: User; };
+
+    if (dashboardData.role === 'KEUANGAN') {
+        redirect('/dashboard/finance');
+    }
 
     if (dashboardData.role === 'ADMIN') {
         const { adminStats, applications, acceptedApplications, topDebtors } = dashboardData;

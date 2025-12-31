@@ -2,7 +2,7 @@
 
 import { useFormStatus } from "react-dom";
 import { createUser } from "@/app/actions/users";
-import { ArrowLeft, User, Shield, GraduationCap, Lock, AlertCircle, Building, BookOpen, UserCircle } from "lucide-react";
+import { ArrowLeft, User, Shield, GraduationCap, Lock, AlertCircle, Building, BookOpen, UserCircle, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -62,6 +62,7 @@ export default function CreateUserPage() {
                             {[
                                 { id: 'MAHASISWA', icon: GraduationCap, label: 'Mahasiswa' },
                                 { id: 'PENGAWAS', icon: User, label: 'Pengawas' },
+                                { id: 'KEUANGAN', icon: Wallet, label: 'Keuangan' },
                                 { id: 'ADMIN', icon: Shield, label: 'Admin' }
                             ].map((r) => (
                                 <label key={r.id} className="cursor-pointer relative group">

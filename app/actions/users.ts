@@ -1,59 +1,71 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { getSessionUser } from "./auth";
+import { getSession } from "@/lib/session";
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
+import { User } from "@prisma/client";
+
+const CreateUserSchema = z.object({
+    name: z.string().min(1, "Nama wajib diisi"),
+    username: z.string().min(1, "Username wajib diisi"),
+    password: z.string().min(6, "Password minimal 6 karakter"),
+    role: z.enum(['MAHASISWA', 'ADMIN', 'KEUANGAN', 'PENGAWAS']),
+    nim: z.string().nullable().optional(),
+    prodi: z.string().nullable().optional(),
+    kelas: z.string().nullable().optional(),
+    totalHours: z.number().int().nonnegative().default(0)
+});
+
+import { hashPassword } from "@/lib/password";
 
 export async function createUser(formData: FormData) {
-    const user = await getSessionUser();
+    const session = await getSession();
 
-    if (!user || user.role !== 'ADMIN') {
+    if (!session || session.role !== 'ADMIN') {
         return { error: 'Unauthorized. Admin access required.' };
     }
 
-    const name = (formData.get('name') as string).trim();
-    const password = (formData.get('password') as string).trim();
-    const role = (formData.get('role') as string).trim();
+    const rawData = {
+        name: formData.get('name'),
+        password: formData.get('password'),
+        role: formData.get('role'),
+        nim: (formData.get('nim') as string)?.trim() || undefined,
+        prodi: (formData.get('prodi') as string)?.trim() || undefined,
+        kelas: (formData.get('kelas') as string)?.trim() || undefined,
+        username: (formData.get('username') as string)?.trim(),
+        totalHours: formData.get('totalHours') ? parseInt(formData.get('totalHours') as string, 10) : 0
+    };
 
-    const nim = (formData.get('nim') as string)?.trim() || null;
-    const prodi = (formData.get('prodi') as string)?.trim() || null;
-    const kelas = (formData.get('kelas') as string)?.trim() || null;
-
-    let username = (formData.get('username') as string)?.trim();
-    if (!username && nim) {
-        username = nim;
+    if (!rawData.username && rawData.nim) {
+        rawData.username = rawData.nim;
     }
 
-    console.log('Raw totalHours:', formData.get('totalHours'));
+    const parsed = CreateUserSchema.safeParse(rawData);
 
-    let totalHours = 0;
-    if (role === 'MAHASISWA') {
-        const rawHours = formData.get('totalHours');
-        if (rawHours) {
-            totalHours = parseInt(rawHours.toString(), 10);
-        }
+    if (!parsed.success) {
+        const errs = parsed.error.flatten().fieldErrors;
+        return { error: Object.values(errs).flat()[0] || "Invalid data" };
     }
 
-    console.log('Parsed totalHours:', totalHours);
-
-    if (!name || !username || !password || !role) {
-        return { error: 'Nama, Username, Password, dan Role wajib diisi.' };
-    }
+    const data = parsed.data;
 
     try {
-        const existing = await prisma.user.findUnique({ where: { username } });
+        const existing = await prisma.user.findUnique({ where: { username: data.username } });
         if (existing) return { error: 'Username sudah terdaftar.' };
+
+        const hashedPassword = await hashPassword(data.password);
 
         await prisma.user.create({
             data: {
-                name,
-                username,
-                password,
-                role,
-                nim,
-                prodi,
-                kelas,
-                totalHours: totalHours
+                name: data.name,
+                username: data.username,
+                password: hashedPassword,
+                role: data.role,
+                nim: data.nim,
+                prodi: data.prodi,
+                kelas: data.kelas,
+                totalHours: data.totalHours,
             }
         });
 
@@ -66,8 +78,12 @@ export async function createUser(formData: FormData) {
 }
 
 export async function deleteUser(userId: number) {
-    const user = await getSessionUser();
-    if (!user || user.role !== 'ADMIN') return { error: 'Unauthorized' };
+    const session = await getSession();
+    if (!session || session.role !== 'ADMIN') return { error: 'Unauthorized' };
+
+    if (session.userId === userId) {
+        return { error: "Tidak dapat menghapus akun sendiri." };
+    }
 
     try {
         await prisma.user.delete({ where: { id: userId } });
@@ -79,10 +95,20 @@ export async function deleteUser(userId: number) {
 }
 
 export async function getUsers() {
-    const user = await getSessionUser();
-    if (!user || user.role !== 'ADMIN') return [];
+    const session = await getSession();
+    if (!session || session.role !== 'ADMIN') return [];
 
-    return await prisma.user.findMany({
+    const users = await prisma.user.findMany({
         orderBy: { role: 'asc' }
     });
+
+    return users.map(user => {
+        const { password, createdAt, updatedAt, ...safeUser } = user;
+
+        return {
+            ...safeUser,
+            createdAt: createdAt.toISOString(),
+            updatedAt: updatedAt.toISOString()
+        };
+    }) as unknown as User[];
 }

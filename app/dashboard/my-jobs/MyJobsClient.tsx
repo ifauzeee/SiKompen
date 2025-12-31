@@ -1,6 +1,8 @@
 "use client";
 
+
 import { useState } from "react";
+import { useDialog } from "@/contexts/DialogContext";
 import { Edit2, Trash2, Plus, Clock, Users, Search } from "lucide-react";
 import { deleteJob, toggleJobStatus } from "@/app/actions/jobs";
 import Link from "next/link";
@@ -11,6 +13,7 @@ import { Loader2 } from "lucide-react";
 
 export default function MyJobsClient({ jobs }: { jobs: (Job & { _count: { applications: number }, status: string })[] }) {
     const router = useRouter();
+    const { showAlert } = useDialog();
     const [isDeleting, setIsDeleting] = useState(false);
     const [deleteId, setDeleteId] = useState<number | null>(null);
 
@@ -23,7 +26,7 @@ export default function MyJobsClient({ jobs }: { jobs: (Job & { _count: { applic
         setDeleteId(null);
 
         if (res?.error) {
-            alert(res.error);
+            showAlert(res.error, "Gagal Menghapus");
         } else {
             router.refresh();
         }
@@ -35,7 +38,7 @@ export default function MyJobsClient({ jobs }: { jobs: (Job & { _count: { applic
         setTogglingId(null);
 
         if (res?.error) {
-            alert(res.error);
+            showAlert(res.error, "Gagal Mengubah Status");
         } else {
             router.refresh();
         }

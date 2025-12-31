@@ -25,6 +25,7 @@ interface AdminDashboardProps {
         totalStudents: number;
         activeJobs: number;
         pendingValidations: number;
+        totalIncome: number;
     };
     applications?: (JobApplication & { user: { name: string; nim: string | null; totalHours: number }; job: { title: string; hours: number } })[];
     acceptedApplications?: (JobApplication & { user: { name: string; nim: string | null; totalHours: number }; job: { title: string; hours: number } })[];
@@ -46,18 +47,34 @@ export default function AdminDashboard({ user, stats, applications, acceptedAppl
                     </p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <button className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-xl font-bold hover:shadow-lg transition-all active:scale-95">
-                        <Download size={18} />
-                        <span>Export Data</span>
-                    </button>
+                    <Link href="/dashboard/finance" className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-xl font-bold hover:shadow-lg transition-all active:scale-95">
+                        <TrendingUp size={18} />
+                        <span>Finance Portal</span>
+                    </Link>
                     <Link href="/jobs/create" className="flex items-center gap-2 px-4 py-2.5 bg-[#008C9D] text-white rounded-xl font-bold hover:bg-[#007A8A] hover:shadow-lg shadow-[#008C9D]/20 transition-all active:scale-95">
                         <PlusCircle size={18} />
                         <span>Buat Pekerjaan</span>
+                    </Link>
+                    <Link href="/dashboard/settings" className="flex items-center gap-2 px-4 py-2.5 bg-white text-gray-700 border border-gray-200 rounded-xl font-bold hover:bg-gray-50 hover:shadow-lg transition-all active:scale-95">
+                        <Settings size={18} />
+                        <span>Pengaturan</span>
                     </Link>
                 </div>
             </header>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+
+                <div className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-xl shadow-gray-100/50 flex flex-col justify-between group hover:border-green-500/30 transition-all duration-300">
+                    <div className="flex justify-between items-start mb-4">
+                        <div className="p-3 bg-green-100 text-green-600 rounded-2xl group-hover:scale-110 transition-transform duration-300">
+                            <TrendingUp size={24} />
+                        </div>
+                    </div>
+                    <div>
+                        <p className="text-gray-400 font-bold text-xs uppercase tracking-wider">Total Pemasukan</p>
+                        <h3 className="text-2xl font-black text-gray-900 mt-1">Rp {stats?.totalIncome.toLocaleString('id-ID') || 0}</h3>
+                    </div>
+                </div>
 
                 <div className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-xl shadow-gray-100/50 flex flex-col justify-between group hover:border-[#008C9D]/30 transition-all duration-300">
                     <div className="flex justify-between items-start mb-4">
@@ -103,31 +120,11 @@ export default function AdminDashboard({ user, stats, applications, acceptedAppl
                     </div>
                 </div>
 
-                <div className="bg-[#008C9D] text-white p-6 rounded-[2.5rem] border border-[#007A8A] shadow-xl flex flex-col justify-between group relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/20 rounded-full blur-2xl -mr-10 -mt-10 group-hover:scale-150 transition-transform duration-700"></div>
-                    <div className="relative z-10">
-                        <div className="flex justify-between items-start mb-4">
-                            <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-md text-white">
-                                <Settings size={24} />
-                            </div>
-                        </div>
-                        <div>
-                            <p className="text-white/70 font-bold text-xs uppercase tracking-wider">System Status</p>
-                            <h3 className="text-lg font-bold mt-1 text-white flex items-center gap-2">
-                                <span className="w-2 h-2 rounded-full bg-[#34d399] animate-pulse"></span>
-                                Operational
-                            </h3>
-                        </div>
-                    </div>
-                    <Link href="/dashboard/settings" className="relative z-10 text-xs font-bold text-white/50 hover:text-white flex items-center gap-1 mt-4 transition-colors">
-                        Pengaturan Lanjut <ChevronRight size={14} />
-                    </Link>
-                </div>
+                <div className="bg-[#008C9D] text-white p-6 rounded-[2.5rem] border border-[#007A8A] shadow-xl flex flex-col justify-between group relative overflow-hidden hidden"></div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2 space-y-8">
-                    {/* Permintaan Validasi Section */}
                     <div className="bg-white rounded-[2.5rem] p-8 border border-gray-100 shadow-xl shadow-gray-100/50">
                         <div className="flex justify-between items-center mb-8">
                             <div>
@@ -141,7 +138,6 @@ export default function AdminDashboard({ user, stats, applications, acceptedAppl
                         <ApplicationList applications={applications || []} variant="PENDING" title="Semua Tervalidasi!" />
                     </div>
 
-                    {/* Pekerjaan Berjalan Section */}
                     <div className="bg-white rounded-[2.5rem] p-8 border border-gray-100 shadow-xl shadow-gray-100/50">
                         <div className="flex justify-between items-center mb-8">
                             <div>
@@ -203,7 +199,7 @@ export default function AdminDashboard({ user, stats, applications, acceptedAppl
                         <h3 className="text-xl font-bold mb-6 relative z-10">Menu Cepat</h3>
                         <div className="space-y-3 relative z-10">
                             <QuickLink href="/dashboard/users" icon={<Users size={18} />} label="Kelola Pengguna" />
-                            <QuickLink href="/dashboard/report" icon={<FileText size={18} />} label="Laporan Semester" />
+                            <QuickLink href="/dashboard/finance" icon={<TrendingUp size={18} />} label="Finance Dashboard" />
                             <QuickLink href="/dashboard/import" icon={<FileUp size={18} />} label="Import Data Mhs" />
                         </div>
                     </div>

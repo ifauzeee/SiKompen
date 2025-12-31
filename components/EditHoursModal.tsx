@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { updateStudentHours } from "@/app/actions/admin";
 import { X, Clock, AlertCircle } from "lucide-react";
 
@@ -16,15 +16,24 @@ interface EditHoursModalProps {
 }
 
 export default function EditHoursModal({ isOpen, onClose, student }: EditHoursModalProps) {
-    const [hours, setHours] = useState(student?.totalHours || 0);
+    const [hours, setHours] = useState<number | string>(student?.totalHours || 0);
     const [reason, setReason] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
+
+    useEffect(() => {
+        if (student) {
+            setHours(student.totalHours);
+            setReason("");
+            setError("");
+        }
+    }, [student]);
 
     if (!isOpen || !student) return null;
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
+        if (!student) return;
         if (!reason.trim()) {
             setError("Alasan perubahan wajib diisi.");
             return;
@@ -33,7 +42,8 @@ export default function EditHoursModal({ isOpen, onClose, student }: EditHoursMo
         setLoading(true);
         setError("");
 
-        const result = await updateStudentHours(student.id, hours, reason);
+        const finalHours = hours === "" ? 0 : Number(hours);
+        const result = await updateStudentHours(student.id, finalHours, reason);
 
         setLoading(false);
 
@@ -89,7 +99,11 @@ export default function EditHoursModal({ isOpen, onClose, student }: EditHoursMo
                             type="number"
                             min="0"
                             value={hours}
-                            onChange={(e) => setHours(parseInt(e.target.value) || 0)}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === "") setHours("");
+                                else setHours(parseInt(val));
+                            }}
                             className="w-full px-4 py-3 border border-gray-200 rounded-xl font-bold text-2xl text-gray-900 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none"
                         />
                     </div>

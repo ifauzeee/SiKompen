@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { importStudents } from "@/app/actions/admin";
 import Link from "next/link";
-import { ArrowLeft, FileUp, Upload, CheckCircle, AlertCircle, FileText } from "lucide-react";
+import { ArrowLeft, FileUp, Upload, CheckCircle, AlertCircle, FileText, Info, AlertTriangle } from "lucide-react";
 
 interface ParsedStudent {
     nim: string;
@@ -21,6 +21,8 @@ export default function ImportClient() {
     const [result, setResult] = useState<{ success: number; skip: number; error: number } | null>(null);
 
     function parseData() {
+        if (!textData.trim()) return;
+
         const lines = textData.split('\n').filter(line => line.trim());
         const students: ParsedStudent[] = [];
 
@@ -30,34 +32,30 @@ export default function ImportClient() {
 
             const parts = line.split(/\t+|\s{2,}/);
 
-            if (parts.length >= 3) {
-                const nimCandidate = parts[1]?.trim();
-                const nameCandidate = parts[2]?.trim();
+            let nim = "";
+            let name = "";
 
-                if (/^\d{10}$/.test(nimCandidate) && nameCandidate) {
-                    students.push({
-                        nim: nimCandidate,
-                        name: nameCandidate,
-                        prodi: prodi,
-                        kelas: kelas
-                    });
+            for (const part of parts) {
+                const trimmed = part.trim();
+                if (/^\d{10}$/.test(trimmed)) {
+                    nim = trimmed;
+                } else if (trimmed.length > 3 && !/^\d+$/.test(trimmed) && trimmed !== "L" && trimmed !== "P") {
+                    if (!name) name = trimmed;
                 }
-            } else if (parts.length >= 2) {
-                const nimCandidate = parts[0]?.trim();
-                const nameCandidate = parts[1]?.trim();
+            }
 
-                if (/^\d{10}$/.test(nimCandidate) && nameCandidate) {
-                    students.push({
-                        nim: nimCandidate,
-                        name: nameCandidate,
-                        prodi: prodi,
-                        kelas: kelas
-                    });
-                }
+            if (nim && name) {
+                students.push({
+                    nim,
+                    name,
+                    prodi,
+                    kelas
+                });
             }
         }
 
         setPreview(students);
+        setResult(null);
     }
 
     async function handleImport() {
@@ -79,141 +77,193 @@ export default function ImportClient() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50/50">
-            <div className="border-b border-gray-200 bg-white sticky top-0 z-30">
-                <div className="max-w-7xl mx-auto px-6 h-20 flex items-center gap-4">
-                    <Link href="/dashboard" className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-500">
-                        <ArrowLeft size={24} />
-                    </Link>
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-[#008C9D]/10 text-[#008C9D] rounded-xl">
-                            <FileUp size={24} />
-                        </div>
-                        <div>
-                            <h1 className="text-xl font-bold text-gray-900">Import Data Mahasiswa</h1>
-                            <p className="text-sm text-gray-500">Tambah mahasiswa dari data teks</p>
-                        </div>
+        <div className="pt-8 px-4 sm:px-8 max-w-[1600px] mx-auto min-h-screen pb-12 space-y-8">
+            <header>
+                <Link href="/dashboard" className="inline-flex items-center gap-2 text-gray-400 hover:text-gray-900 transition-colors mb-6 font-medium group">
+                    <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
+                    Kembali ke Dashboard
+                </Link>
+                <div className="flex items-start gap-4">
+                    <div className="p-4 bg-[#008C9D]/10 text-[#008C9D] rounded-2xl">
+                        <FileUp size={32} />
                     </div>
-                </div>
-            </div>
-
-            <div className="max-w-4xl mx-auto px-6 py-8">
-                {result && (
-                    <div className="mb-6 p-6 bg-green-50 border border-green-200 rounded-2xl">
-                        <div className="flex items-center gap-3 mb-2">
-                            <CheckCircle size={24} className="text-green-600" />
-                            <h3 className="font-bold text-green-800">Import Selesai!</h3>
-                        </div>
-                        <p className="text-green-700">
-                            Berhasil: <strong>{result.success}</strong> |
-                            Dilewati: <strong>{result.skip}</strong> |
-                            Gagal: <strong>{result.error}</strong>
+                    <div>
+                        <h1 className="text-4xl font-black text-gray-900 tracking-tight mb-2">
+                            Import Data Mahasiswa
+                        </h1>
+                        <p className="text-gray-500 text-lg font-medium">
+                            Tambah data mahasiswa secara massal dari Excel atau CSV.
                         </p>
                     </div>
-                )}
-
-                <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-bold text-gray-500 mb-2">Program Studi</label>
-                            <select
-                                value={prodi}
-                                onChange={(e) => setProdi(e.target.value)}
-                                className="w-full px-4 py-3 border border-gray-200 rounded-xl font-medium focus:border-[#008C9D] outline-none"
-                            >
-                                <option value="Teknik Informatika">Teknik Informatika</option>
-                                <option value="Teknik Multimedia dan Jaringan">Teknik Multimedia dan Jaringan</option>
-                                <option value="Teknik Multimedia Digital">Teknik Multimedia Digital</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-bold text-gray-500 mb-2">Kelas</label>
-                            <input
-                                type="text"
-                                value={kelas}
-                                onChange={(e) => setKelas(e.target.value)}
-                                placeholder="Contoh: TI 1A"
-                                className="w-full px-4 py-3 border border-gray-200 rounded-xl font-medium focus:border-[#008C9D] outline-none"
-                            />
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-bold text-gray-500 mb-2">
-                            Data Mahasiswa (Copy-paste dari Excel)
-                        </label>
-                        <textarea
-                            value={textData}
-                            onChange={(e) => setTextData(e.target.value)}
-                            placeholder={"No\tNIM\tNama Mahasiswa\n1\t2507411001\tNama Mahasiswa 1\n2\t2507411002\tNama Mahasiswa 2\n..."}
-                            rows={10}
-                            className="w-full px-4 py-3 border border-gray-200 rounded-xl font-mono text-sm focus:border-[#008C9D] outline-none resize-none"
-                        />
-                    </div>
-
-                    <button
-                        onClick={parseData}
-                        disabled={!textData.trim() || !kelas.trim()}
-                        className="w-full py-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                    >
-                        <FileText size={20} />
-                        Parse Data
-                    </button>
                 </div>
+            </header>
 
-                {preview.length > 0 && (
-                    <div className="mt-6 bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
-                        <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                <div className="space-y-6">
+                    <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-xl shadow-gray-100/50">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 font-bold shrink-0">1</div>
+                            <h3 className="text-xl font-bold text-gray-900">Konfigurasi Data</h3>
+                        </div>
+
+                        <div className="space-y-4">
                             <div>
-                                <h3 className="font-bold text-gray-900">Preview Data</h3>
-                                <p className="text-sm text-gray-500">{preview.length} mahasiswa ditemukan</p>
+                                <label className="block text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Program Studi</label>
+                                <div className="relative">
+                                    <select
+                                        value={prodi}
+                                        onChange={(e) => setProdi(e.target.value)}
+                                        className="w-full px-5 py-4 bg-gray-50 border-2 border-transparent rounded-2xl font-bold text-gray-900 focus:bg-white focus:border-[#008C9D]/20 focus:shadow-lg focus:shadow-[#008C9D]/5 outline-none transition-all appearance-none"
+                                    >
+                                        <option value="Teknik Informatika">Teknik Informatika</option>
+                                        <option value="Teknik Multimedia dan Jaringan">Teknik Multimedia dan Jaringan</option>
+                                        <option value="Teknik Multimedia Digital">Teknik Multimedia Digital</option>
+                                    </select>
+                                    <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                                        <ArrowLeft size={20} className="-rotate-90" />
+                                    </div>
+                                </div>
                             </div>
+                            <div>
+                                <label className="block text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Kelas</label>
+                                <input
+                                    type="text"
+                                    value={kelas}
+                                    onChange={(e) => setKelas(e.target.value)}
+                                    placeholder="Contoh: TI 6A"
+                                    className="w-full px-5 py-4 bg-gray-50 border-2 border-transparent rounded-2xl font-bold text-gray-900 focus:bg-white focus:border-[#008C9D]/20 focus:shadow-lg focus:shadow-[#008C9D]/5 outline-none transition-all placeholder:text-gray-300"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-xl shadow-gray-100/50">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 font-bold shrink-0">2</div>
+                            <h3 className="text-xl font-bold text-gray-900">Paste Data Excel</h3>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100 mb-4">
+                                <p className="text-sm text-blue-800 font-medium flex gap-2">
+                                    <Info size={18} className="shrink-0" />
+                                    Salin kolom NIM dan Nama dari Excel, lalu tempel di bawah ini.
+                                </p>
+                            </div>
+
+                            <textarea
+                                value={textData}
+                                onChange={(e) => setTextData(e.target.value)}
+                                placeholder={"NIM         Nama Mahasiswa\n2107411001  Ahmad Dahlan\n2107411002  Budi Santoso..."}
+                                rows={12}
+                                className="w-full p-5 bg-gray-50 border-2 border-transparent rounded-2xl font-mono text-sm text-gray-900 focus:bg-white focus:border-[#008C9D]/20 focus:shadow-lg focus:shadow-[#008C9D]/5 outline-none transition-all resize-none placeholder:text-gray-400"
+                            />
+
                             <button
-                                onClick={handleImport}
-                                disabled={importing}
-                                className="px-6 py-3 bg-[#008C9D] text-white rounded-xl font-bold hover:bg-[#007A8A] transition-colors disabled:opacity-50 flex items-center gap-2"
+                                onClick={parseData}
+                                disabled={!textData.trim() || !kelas.trim()}
+                                className="w-full py-4 bg-[#008C9D] text-white rounded-xl font-bold hover:bg-[#007A8A] transition-colors shadow-lg shadow-[#008C9D]/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group"
                             >
-                                {importing ? (
-                                    <>
-                                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                        Mengimport...
-                                    </>
-                                ) : (
-                                    <>
-                                        <Upload size={20} />
-                                        Import Semua
-                                    </>
-                                )}
+                                <FileText size={20} className="group-hover:scale-110 transition-transform" />
+                                Proses Data
                             </button>
                         </div>
-
-                        <div className="max-h-96 overflow-y-auto">
-                            <table className="w-full text-left">
-                                <thead className="bg-gray-50 sticky top-0">
-                                    <tr>
-                                        <th className="p-4 text-xs font-bold text-gray-500">NIM</th>
-                                        <th className="p-4 text-xs font-bold text-gray-500">NAMA</th>
-                                        <th className="p-4 text-xs font-bold text-gray-500">KELAS</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-100">
-                                    {preview.slice(0, 50).map((s, i) => (
-                                        <tr key={i} className="hover:bg-gray-50">
-                                            <td className="p-4 font-mono text-sm">{s.nim}</td>
-                                            <td className="p-4 font-medium">{s.name}</td>
-                                            <td className="p-4 text-gray-500">{s.kelas}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                            {preview.length > 50 && (
-                                <p className="p-4 text-center text-sm text-gray-400">
-                                    ...dan {preview.length - 50} lainnya
-                                </p>
-                            )}
-                        </div>
                     </div>
-                )}
+                </div>
+
+                <div className="space-y-6">
+                    {result && (
+                        <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-xl shadow-gray-100/50 animate-in slide-in-from-top-4">
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-600 font-bold shrink-0">
+                                    <CheckCircle size={20} />
+                                </div>
+                                <h3 className="text-xl font-bold text-gray-900">Hasil Import</h3>
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-4">
+                                <div className="p-4 bg-green-50 rounded-2xl border border-green-100 text-center">
+                                    <p className="text-xs font-bold text-green-600 uppercase tracking-widest mb-1">Berhasil</p>
+                                    <p className="text-3xl font-black text-green-900">{result.success}</p>
+                                </div>
+                                <div className="p-4 bg-orange-50 rounded-2xl border border-orange-100 text-center">
+                                    <p className="text-xs font-bold text-orange-600 uppercase tracking-widest mb-1">Dilewati</p>
+                                    <p className="text-3xl font-black text-orange-900">{result.skip}</p>
+                                </div>
+                                <div className="p-4 bg-red-50 rounded-2xl border border-red-100 text-center">
+                                    <p className="text-xs font-bold text-red-600 uppercase tracking-widest mb-1">Gagal</p>
+                                    <p className="text-3xl font-black text-red-900">{result.error}</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {preview.length > 0 && !result && (
+                        <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-xl shadow-gray-100/50 flex flex-col h-full max-h-[800px]">
+                            <div className="flex items-center justify-between mb-6 shrink-0">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-full bg-purple-50 flex items-center justify-center text-purple-600 font-bold shrink-0">3</div>
+                                    <div>
+                                        <h3 className="text-xl font-bold text-gray-900">Preview Data</h3>
+                                        <p className="text-sm font-medium text-gray-400">{preview.length} data terbaca</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={handleImport}
+                                    disabled={importing}
+                                    className="px-6 py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-black transition-colors shadow-lg disabled:opacity-50 flex items-center gap-2"
+                                >
+                                    {importing ? (
+                                        <>
+                                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                            Proses...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Upload size={18} />
+                                            Import Sekarang
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+
+                            <div className="flex-1 overflow-hidden relative rounded-2xl border border-gray-100">
+                                <div className="absolute inset-0 overflow-y-auto">
+                                    <table className="w-full text-left">
+                                        <thead className="bg-gray-50 sticky top-0 z-10">
+                                            <tr>
+                                                <th className="p-4 text-xs font-bold text-gray-400 uppercase tracking-wider">NIM</th>
+                                                <th className="p-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Nama Mahasiswa</th>
+                                                <th className="p-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Kelas</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100">
+                                            {preview.map((s, i) => (
+                                                <tr key={i} className="hover:bg-gray-50 transition-colors">
+                                                    <td className="p-4 font-mono font-bold text-gray-600 text-sm">{s.nim}</td>
+                                                    <td className="p-4 font-bold text-gray-900 text-sm">{s.name}</td>
+                                                    <td className="p-4 text-gray-500 text-sm font-medium">{s.kelas}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {!preview.length && !result && (
+                        <div className="h-full min-h-[300px] flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-gray-200 rounded-[2.5rem] text-gray-400">
+                            <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
+                                <AlertCircle size={32} className="opacity-50" />
+                            </div>
+                            <h3 className="text-lg font-bold text-gray-600">Belum ada data</h3>
+                            <p className="max-w-xs mx-auto mt-2">
+                                Data yang Anda proses akan muncul di sini untuk diperiksa sebelum disimpan.
+                            </p>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );

@@ -17,7 +17,7 @@ export default async function SettingsPage() {
     const defaultSettings = [
         { key: 'semester_aktif', value: '2024/2025 Ganjil', description: 'Semester yang sedang aktif' },
         { key: 'batas_jam_kompen', value: '100', description: 'Batas maksimum jam kompen per mahasiswa' },
-        { key: 'jam_per_sks', value: '2', description: 'Konversi jam kompen per SKS yang tidak diambil' },
+        { key: 'bank_account', value: 'BNI 1234567890 a.n. Politeknik Negeri Jakarta', description: 'Informasi rekening pembayaran kompen' },
     ];
 
     const mergedSettings = defaultSettings.map(def => {

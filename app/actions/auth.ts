@@ -1,71 +1,110 @@
 'use server'
 
 import { prisma } from '@/lib/prisma'
-import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { z } from 'zod'
+import { hashPassword, verifyPassword, needsRehash } from '@/lib/password'
+import { createSession, deleteSession, getSession } from '@/lib/session'
+import { User } from '@prisma/client'
+
+const LoginSchema = z.object({
+    username: z.string().min(1, "Username wajib diisi"),
+    password: z.string().min(1, "Password wajib diisi"),
+})
+
+const ChangePasswordSchema = z.object({
+    currentPassword: z.string().min(1),
+    newPassword: z.string().min(6, "Password baru minimal 6 karakter")
+})
 
 export async function login(formData: FormData) {
-    const username = (formData.get('username') as string).trim()
-    const password = (formData.get('password') as string).trim()
-
-    if (!username || !password) {
-        return { error: 'Username dan password wajib diisi.' }
+    const rawData = {
+        username: formData.get('username'),
+        password: formData.get('password'),
     }
+
+    const validatedFields = LoginSchema.safeParse(rawData)
+
+    if (!validatedFields.success) {
+        const errors = validatedFields.error.flatten().fieldErrors;
+        return { error: errors.username?.[0] || errors.password?.[0] || "Input tidak valid" }
+    }
+
+    const { username, password } = validatedFields.data
 
     const user = await prisma.user.findUnique({
         where: { username },
     })
 
-    if (!user || user.password !== password) {
+    if (!user) {
         return { error: 'Username atau password salah.' }
     }
 
-    const cookieStore = await cookies()
-    cookieStore.set('session_userId', user.id.toString(), {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        maxAge: 60 * 60 * 24 * 7,
-        path: '/',
+    const isValid = await verifyPassword(password, user.password)
+
+    if (!isValid) {
+        return { error: 'Username atau password salah.' }
+    }
+
+    if (needsRehash(user.password)) {
+        const newHash = await hashPassword(password)
+        await prisma.user.update({
+            where: { id: user.id },
+            data: { password: newHash }
+        })
+    }
+
+    await createSession({
+        userId: user.id,
+        role: user.role,
+        username: user.username
     })
 
     redirect('/dashboard')
 }
 
 export async function logout() {
-    const cookieStore = await cookies()
-    cookieStore.delete('session_userId')
+    await deleteSession()
     redirect('/login')
 }
 
 export async function getSessionUser() {
-    const cookieStore = await cookies()
-    const userId = cookieStore.get('session_userId')?.value
-
-    if (!userId) return null
+    const session = await getSession()
+    if (!session) return null
 
     const user = await prisma.user.findUnique({
-        where: { id: parseInt(userId) }
+        where: { id: session.userId }
     })
 
-    return user
+    if (!user) return null;
+
+    const { password, ...safeUser } = user;
+    return safeUser as unknown as User;
 }
 
 export async function changePassword(currentPassword: string, newPassword: string) {
-    const user = await getSessionUser();
+    const session = await getSession();
+    if (!session) return { error: 'Unauthorized' };
+
+    const user = await prisma.user.findUnique({ where: { id: session.userId } });
     if (!user) return { error: 'Unauthorized' };
 
-    if (user.password !== currentPassword) {
+    const validated = ChangePasswordSchema.safeParse({ currentPassword, newPassword });
+    if (!validated.success) {
+        return { error: validated.error.flatten().fieldErrors.newPassword?.[0] || "Input tidak valid" };
+    }
+
+    const isValid = await verifyPassword(currentPassword, user.password);
+    if (!isValid) {
         return { error: 'Password lama salah.' };
     }
 
-    if (newPassword.length < 6) {
-        return { error: 'Password baru minimal 6 karakter.' };
-    }
-
     try {
+        const hashedPassword = await hashPassword(newPassword);
+
         await prisma.user.update({
             where: { id: user.id },
-            data: { password: newPassword }
+            data: { password: hashedPassword }
         });
 
         await prisma.activityLog.create({

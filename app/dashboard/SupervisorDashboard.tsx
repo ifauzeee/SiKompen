@@ -94,7 +94,6 @@ export default function SupervisorDashboard({ user, stats, applications, accepte
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2 space-y-8">
-                    {/* Validasi Queue */}
                     <div className="bg-white rounded-[2.5rem] p-8 border border-gray-100 shadow-xl shadow-gray-100/50">
                         <div className="flex justify-between items-center mb-8">
                             <div>
@@ -108,7 +107,6 @@ export default function SupervisorDashboard({ user, stats, applications, accepte
                         <ApplicationList applications={applications || []} variant="PENDING" title="Semua Tervalidasi!" />
                     </div>
 
-                    {/* Pekerjaan Berjalan Section */}
                     <div className="bg-white rounded-[2.5rem] p-8 border border-gray-100 shadow-xl shadow-gray-100/50">
                         <div className="flex justify-between items-center mb-8">
                             <div>

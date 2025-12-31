@@ -2,6 +2,7 @@
 import { Check, X, Clock, FileCheck, Play, Briefcase } from "lucide-react";
 import { updateApplicationStatus } from "@/app/actions/applications";
 import { useState } from "react";
+import { useDialog } from "@/contexts/DialogContext";
 
 type Application = {
     id: number;
@@ -17,6 +18,7 @@ interface ApplicationListProps {
 }
 
 export default function ApplicationList({ applications, variant, title }: ApplicationListProps) {
+    const { showAlert } = useDialog();
     const [optimisticApps, setOptimisticApps] = useState(applications);
 
     async function handleAction(id: number, action: 'ACCEPT' | 'REJECT' | 'COMPLETE') {
@@ -30,7 +32,7 @@ export default function ApplicationList({ applications, variant, title }: Applic
 
         const res = await updateApplicationStatus(id, status);
         if (res?.error) {
-            alert(res.error);
+            showAlert(res.error, "Gagal Memproses");
             setOptimisticApps(originalApps);
         }
     }

@@ -4,6 +4,7 @@ import Sidebar from "@/components/Sidebar";
 import MainLayout from "@/components/MainLayout";
 import { getSessionUser } from "@/app/actions/auth";
 import { ThemeProvider } from "@/contexts/ThemeContext";
+import { DialogProvider } from "@/contexts/DialogContext";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -37,12 +38,14 @@ export default async function RootLayout({
         </div>
 
         <ThemeProvider>
-          <div className="relative z-10">
-            <Sidebar role={user?.role} userName={user?.name || undefined} />
-            <MainLayout>
-              {children}
-            </MainLayout>
-          </div>
+          <DialogProvider>
+            <div className="relative z-10">
+              <Sidebar role={user?.role} userName={user?.name || undefined} />
+              <MainLayout>
+                {children}
+              </MainLayout>
+            </div>
+          </DialogProvider>
         </ThemeProvider>
       </body>
     </html>

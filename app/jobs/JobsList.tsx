@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useEffect } from "react";
+import { useDialog } from "@/contexts/DialogContext";
 import { Clock, Users, UserCircle, Search, ArrowRight, Filter, X, Loader2, AlertTriangle, CheckCircle, XCircle, Edit, Trash2 } from "lucide-react";
 import { applyForJob } from "@/app/actions/applications";
 import { deleteJob } from "@/app/actions/jobs";
@@ -40,10 +41,12 @@ const hoursRanges = [
 export default function JobsList({ jobs, appliedJobIds = [], userRole, userTotalHours = 0 }: { jobs: Job[], appliedJobIds?: number[], userRole?: string, userTotalHours?: number }) {
     const container = useRef(null);
     const router = useRouter();
+    const { showConfirm } = useDialog();
     const [searchTerm, setSearchTerm] = useState("");
     const [sortBy, setSortBy] = useState("latest");
     const [status, setStatus] = useState("");
     const [hoursRange, setHoursRange] = useState("");
+    const [selectedSupervisor, setSelectedSupervisor] = useState("");
     const [showFilters, setShowFilters] = useState(false);
     const [applyingId, setApplyingId] = useState<number | null>(null);
 
@@ -62,7 +65,8 @@ export default function JobsList({ jobs, appliedJobIds = [], userRole, userTotal
     };
 
     const handleDelete = async (jobId: number) => {
-        if (!confirm("Apakah anda yakin ingin menghapus pekerjaan ini?")) return;
+        const confirmed = await showConfirm("Apakah anda yakin ingin menghapus pekerjaan ini?", "Hapus Pekerjaan");
+        if (!confirmed) return;
         const res = await deleteJob(jobId);
         if (res?.success) {
             showToast('success', "Pekerjaan berhasil dihapus.");
@@ -97,6 +101,7 @@ export default function JobsList({ jobs, appliedJobIds = [], userRole, userTotal
             job.description.toLowerCase().includes(searchTerm.toLowerCase());
 
         const matchesStatus = !status || job.status === status;
+        const matchesSupervisor = !selectedSupervisor || job.createdBy?.name === selectedSupervisor;
 
         let matchesHours = true;
         if (hoursRange) {
@@ -116,7 +121,7 @@ export default function JobsList({ jobs, appliedJobIds = [], userRole, userTotal
             }
         }
 
-        return matchesSearch && matchesStatus && matchesHours;
+        return matchesSearch && matchesStatus && matchesSupervisor && matchesHours;
     }).sort((a, b) => {
         switch (sortBy) {
             case 'hours_desc':
@@ -128,11 +133,14 @@ export default function JobsList({ jobs, appliedJobIds = [], userRole, userTotal
         }
     });
 
-    const activeFiltersCount = [status, hoursRange].filter(Boolean).length;
+    const activeFiltersCount = [status, hoursRange, selectedSupervisor].filter(Boolean).length;
+
+    const uniqueSupervisors = Array.from(new Set(jobs.map(job => job.createdBy?.name).filter(Boolean))) as string[];
 
     const clearFilters = () => {
         setStatus("");
         setHoursRange("");
+        setSelectedSupervisor("");
         setSortBy("latest");
     };
 
@@ -217,6 +225,19 @@ export default function JobsList({ jobs, appliedJobIds = [], userRole, userTotal
                             >
                                 {hoursRanges.map(range => (
                                     <option key={range.value} value={range.value}>{range.label}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-500 mb-2">Pengawas</label>
+                            <select
+                                value={selectedSupervisor}
+                                onChange={(e) => setSelectedSupervisor(e.target.value)}
+                                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-900 focus:border-[#008C9D] outline-none"
+                            >
+                                <option value="">Semua Pengawas</option>
+                                {uniqueSupervisors.map(name => (
+                                    <option key={name} value={name}>{name}</option>
                                 ))}
                             </select>
                         </div>
@@ -358,7 +379,6 @@ export default function JobsList({ jobs, appliedJobIds = [], userRole, userTotal
                 )}
             </div>
 
-            {/* Custom Confirmation Modal */}
             {confirmState.show && (
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-transparent animate-[fadeIn_0.2s_ease-out]">
                     <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-[0_0_100px_rgba(0,0,0,0.2)] border border-gray-100 scale-100 animate-[scaleIn_0.2s_ease-out]">
@@ -387,7 +407,6 @@ export default function JobsList({ jobs, appliedJobIds = [], userRole, userTotal
                 </div>
             )}
 
-            {/* Custom Toast Notification */}
             <div className={`fixed bottom-8 right-8 z-50 transform transition-all duration-300 ${toast.show ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0 pointer-events-none'}`}>
                 <div className={`flex items-center gap-3 px-6 py-4 rounded-2xl shadow-xl border ${toast.type === 'success' ? 'bg-white border-green-100' : 'bg-white border-red-100'}`}>
                     <div className={`p-2 rounded-full ${toast.type === 'success' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>

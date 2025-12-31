@@ -9,6 +9,10 @@ export async function getApplicationsByStatus(status: 'PENDING' | 'ACCEPTED' = '
     const user = await getSessionUser();
     if (!user || !['ADMIN', 'PENGAWAS'].includes(user.role)) return [];
 
+    if (user.role === 'PENGAWAS') {
+        supervisorId = user.id;
+    }
+
     const whereClause: Prisma.JobApplicationWhereInput = { status };
 
     if (supervisorId) {
@@ -33,7 +37,7 @@ export async function getApplicationsByStatus(status: 'PENDING' | 'ACCEPTED' = '
 
 export async function updateApplicationStatus(appId: number, status: 'ACCEPTED' | 'COMPLETED' | 'REJECTED') {
     const user = await getSessionUser();
-    if (!user || user.role !== 'ADMIN') return { error: 'Unauthorized' };
+    if (!user || !['ADMIN', 'PENGAWAS'].includes(user.role)) return { error: 'Unauthorized' };
 
     try {
         await prisma.$transaction(async (tx) => {
@@ -43,6 +47,10 @@ export async function updateApplicationStatus(appId: number, status: 'ACCEPTED' 
             });
 
             if (!app) throw new Error('Application not found');
+
+            if (user.role === 'PENGAWAS' && app.job.createdById !== user.id) {
+                throw new Error('Unauthorized: Anda tidak memiliki akses ke lamaran ini.');
+            }
 
             if (status === 'ACCEPTED' && app.status !== 'PENDING') {
                 throw new Error('Hanya aplikasi PENDING yang bisa di-ACCEPT.');
@@ -148,6 +156,7 @@ export async function updateApplicationStatus(appId: number, status: 'ACCEPTED' 
         return { error: e.message || 'Gagal memproses validasi.' };
     }
 }
+
 export async function applyForJob(jobId: number) {
     const user = await getSessionUser();
 

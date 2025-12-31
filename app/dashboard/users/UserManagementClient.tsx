@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Trash2, Search, User as UserIcon, Shield, GraduationCap, ChevronRight, Building, BookOpen, ArrowLeft, Edit } from "lucide-react";
+import { useDialog } from "@/contexts/DialogContext";
+import { Plus, Trash2, Search, User as UserIcon, Shield, GraduationCap, ChevronRight, Building, BookOpen, ArrowLeft, Edit, Wallet } from "lucide-react";
 import { deleteUser } from "@/app/actions/users";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -14,6 +15,7 @@ type ViewLevel = 'role' | 'prodi' | 'kelas' | 'users';
 export default function UserManagementClient({ users }: { users: User[] }) {
     const router = useRouter();
     const searchParams = useSearchParams();
+    const { showAlert } = useDialog();
 
     const [searchTerm, setSearchTerm] = useState("");
     const [deleteId, setDeleteId] = useState<number | null>(null);
@@ -36,7 +38,7 @@ export default function UserManagementClient({ users }: { users: User[] }) {
 
     const currentLevel = getCurrentLevel();
 
-    const roles = ['ADMIN', 'PENGAWAS', 'MAHASISWA'];
+    const roles = ['ADMIN', 'PENGAWAS', 'KEUANGAN', 'MAHASISWA'];
     const prodis = [...new Set(users.filter(u => u.role === 'MAHASISWA' && u.prodi).map(u => u.prodi))];
 
     const getKelasForProdi = (prodi: string) => {
@@ -62,7 +64,7 @@ export default function UserManagementClient({ users }: { users: User[] }) {
         setIsDeleting(false);
         setDeleteId(null);
 
-        if (res?.error) alert(res.error);
+        if (res?.error) showAlert(res.error, "Gagal Menghapus");
     }
 
     const handleRoleClick = (role: string) => {
@@ -94,12 +96,14 @@ export default function UserManagementClient({ users }: { users: User[] }) {
     const roleIcons: Record<string, React.ReactNode> = {
         'ADMIN': <Shield size={24} className="text-white" />,
         'PENGAWAS': <UserIcon size={24} className="text-[#008C9D]" />,
+        'KEUANGAN': <Wallet size={24} className="text-purple-600" />,
         'MAHASISWA': <GraduationCap size={24} className="text-[#CE2029]" />
     };
 
     const roleColors: Record<string, string> = {
         'ADMIN': 'bg-[#008C9D] text-white border-[#008C9D] shadow-lg shadow-[#008C9D]/20 hover:bg-[#007A8A]',
         'PENGAWAS': 'bg-white text-gray-900 border-[#008C9D] hover:bg-gray-50',
+        'KEUANGAN': 'bg-white text-gray-900 border-purple-500 hover:bg-purple-50',
         'MAHASISWA': 'bg-white text-gray-900 border-[#CE2029] hover:bg-gray-50'
     };
 
@@ -279,7 +283,7 @@ export default function UserManagementClient({ users }: { users: User[] }) {
                             />
                         </div>
 
-                        <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden">
+                        <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden overflow-x-auto">
                             <table className="w-full text-left">
                                 <thead className="bg-gray-50 border-b border-gray-100">
                                     <tr>
@@ -310,12 +314,14 @@ export default function UserManagementClient({ users }: { users: User[] }) {
                                                     </div>
                                                 </td>
                                                 <td className="p-6">
-                                                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${user.role === 'ADMIN' ? 'bg-purple-50 text-purple-600 border-purple-100' :
+                                                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${user.role === 'ADMIN' ? 'bg-[#008C9D]/10 text-[#008C9D] border-[#008C9D]/20' :
                                                         user.role === 'PENGAWAS' ? 'bg-blue-50 text-blue-600 border-blue-100' :
-                                                            'bg-green-50 text-green-600 border-green-100'
+                                                            user.role === 'KEUANGAN' ? 'bg-purple-50 text-purple-600 border-purple-100' :
+                                                                'bg-red-50 text-[#CE2029] border-red-100'
                                                         }`}>
                                                         {user.role === 'ADMIN' && <Shield size={12} />}
                                                         {user.role === 'PENGAWAS' && <UserIcon size={12} />}
+                                                        {user.role === 'KEUANGAN' && <Wallet size={12} />}
                                                         {user.role === 'MAHASISWA' && <GraduationCap size={12} />}
                                                         {user.role}
                                                     </span>
