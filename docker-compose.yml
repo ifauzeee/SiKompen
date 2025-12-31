@@ -1,0 +1,24 @@
+
+version: '3.8'
+
+services:
+  sikompen-app:
+    container_name: sikompen-web
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: sikompen-image
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      # Database URL inside the container (pointing to the mounted volume)
+      - DATABASE_URL="file:/app/db/dev.db"
+      - NODE_ENV=production
+    volumes:
+      # Mount a local directory to persist the SQLite database
+      - ./prisma/db:/app/db
+    # Command to run migrations and then start the server
+    # Note: In production, migrations are usually run separately, but for this standalone setup:
+    command: >
+      sh -c "npx prisma migrate deploy && node server.js"

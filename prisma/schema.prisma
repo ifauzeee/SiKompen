@@ -1,0 +1,83 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                Int                @id @default(autoincrement())
+  username          String             @unique
+  name              String?
+  nim               String?            @unique
+  prodi             String?
+  kelas             String?
+  role              String             @default("MAHASISWA")
+  totalHours        Int                @default(0)
+  password          String
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  applications      JobApplication[]
+  clearanceRequests ClearanceRequest[]
+  createdJobs       Job[]              @relation("JobCreator")
+}
+
+model Job {
+  id          Int              @id @default(autoincrement())
+  title       String
+  description String
+  quota       Int              @default(1)
+  hours       Int
+  category    String           @default("TEKNIS")
+  status      String           @default("OPEN")
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  
+  createdById Int?
+  createdBy   User?            @relation("JobCreator", fields: [createdById], references: [id])
+
+  applications JobApplication[]
+}
+
+model JobApplication {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  jobId     Int
+  status    String   @default("PENDING")
+  appliedAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+  job  Job  @relation(fields: [jobId], references: [id])
+}
+
+model ClearanceRequest {
+  id          Int       @id @default(autoincrement())
+  userId      Int
+  status      String    @default("PENDING")
+  requestedAt DateTime  @default(now())
+  approvedAt  DateTime?
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model ActivityLog {
+  id          Int      @id @default(autoincrement())
+  userId      Int?    
+  action      String   
+  targetType  String   
+  targetId    Int?     
+  details     String?  
+  createdAt   DateTime @default(now())
+}
+
+model SystemSettings {
+  id              Int      @id @default(autoincrement())
+  key             String   @unique
+  value           String
+  description     String?
+  updatedAt       DateTime @updatedAt
+}

@@ -1,0 +1,409 @@
+"use client";
+
+import { useRef, useState, useEffect } from "react";
+import { Clock, Users, UserCircle, Search, ArrowRight, Filter, X, Loader2, AlertTriangle, CheckCircle, XCircle, Edit, Trash2 } from "lucide-react";
+import { applyForJob } from "@/app/actions/applications";
+import { deleteJob } from "@/app/actions/jobs";
+import { useRouter } from "next/navigation";
+
+type Job = {
+    id: number;
+    title: string;
+    description: string;
+    quota: number;
+    hours: number;
+    status: string;
+    category: string;
+    createdBy?: { name: string | null } | null;
+};
+
+const sortOptions = [
+    { value: 'latest', label: 'Terbaru' },
+    { value: 'hours_desc', label: 'Jam Terbanyak' },
+    { value: 'hours_asc', label: 'Jam Sedikit' },
+];
+
+const statusOptions = [
+    { value: '', label: 'Semua Status' },
+    { value: 'OPEN', label: 'Tersedia' },
+    { value: 'CLOSED', label: 'Penuh' },
+];
+
+const hoursRanges = [
+    { value: '', label: 'Semua Jam' },
+    { value: '1-5', label: '1-5 Jam' },
+    { value: '6-10', label: '6-10 Jam' },
+    { value: '11-20', label: '11-20 Jam' },
+    { value: '21+', label: '> 20 Jam' },
+];
+
+export default function JobsList({ jobs, appliedJobIds = [], userRole, userTotalHours = 0 }: { jobs: Job[], appliedJobIds?: number[], userRole?: string, userTotalHours?: number }) {
+    const container = useRef(null);
+    const router = useRouter();
+    const [searchTerm, setSearchTerm] = useState("");
+    const [sortBy, setSortBy] = useState("latest");
+    const [status, setStatus] = useState("");
+    const [hoursRange, setHoursRange] = useState("");
+    const [showFilters, setShowFilters] = useState(false);
+    const [applyingId, setApplyingId] = useState<number | null>(null);
+
+    const [toast, setToast] = useState<{ show: boolean, type: 'success' | 'error', message: string }>({ show: false, type: 'success', message: '' });
+    const [confirmState, setConfirmState] = useState<{ show: boolean, jobId: number | null }>({ show: false, jobId: null });
+
+    useEffect(() => {
+        if (toast.show) {
+            const timer = setTimeout(() => setToast(prev => ({ ...prev, show: false })), 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [toast.show]);
+
+    const showToast = (type: 'success' | 'error', message: string) => {
+        setToast({ show: true, type, message });
+    };
+
+    const handleDelete = async (jobId: number) => {
+        if (!confirm("Apakah anda yakin ingin menghapus pekerjaan ini?")) return;
+        const res = await deleteJob(jobId);
+        if (res?.success) {
+            showToast('success', "Pekerjaan berhasil dihapus.");
+        } else {
+            showToast('error', "Gagal menghapus pekerjaan.");
+        }
+    };
+
+    const handleApplyClick = (jobId: number) => {
+        setConfirmState({ show: true, jobId });
+    };
+
+    const confirmApply = async () => {
+        if (!confirmState.jobId) return;
+
+        const jobId = confirmState.jobId;
+        setConfirmState({ show: false, jobId: null });
+        setApplyingId(jobId);
+
+        const res = await applyForJob(jobId);
+        setApplyingId(null);
+
+        if (res?.error) {
+            showToast('error', res.error);
+        } else {
+            showToast('success', "Berhasil melamar pekerjaan! Silahkan tunggu konfirmasi dari pengawas.");
+        }
+    };
+
+    const filteredJobs = jobs.filter(job => {
+        const matchesSearch = job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            job.description.toLowerCase().includes(searchTerm.toLowerCase());
+
+        const matchesStatus = !status || job.status === status;
+
+        let matchesHours = true;
+        if (hoursRange) {
+            switch (hoursRange) {
+                case '1-5':
+                    matchesHours = job.hours >= 1 && job.hours <= 5;
+                    break;
+                case '6-10':
+                    matchesHours = job.hours >= 6 && job.hours <= 10;
+                    break;
+                case '11-20':
+                    matchesHours = job.hours >= 11 && job.hours <= 20;
+                    break;
+                case '21+':
+                    matchesHours = job.hours > 20;
+                    break;
+            }
+        }
+
+        return matchesSearch && matchesStatus && matchesHours;
+    }).sort((a, b) => {
+        switch (sortBy) {
+            case 'hours_desc':
+                return b.hours - a.hours;
+            case 'hours_asc':
+                return a.hours - b.hours;
+            default:
+                return b.id - a.id;
+        }
+    });
+
+    const activeFiltersCount = [status, hoursRange].filter(Boolean).length;
+
+    const clearFilters = () => {
+        setStatus("");
+        setHoursRange("");
+        setSortBy("latest");
+    };
+
+    return (
+        <div ref={container} className="pt-8 px-4 sm:px-8 max-w-[1600px] mx-auto min-h-screen pb-12 space-y-8">
+            <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-4">
+                <div>
+                    <h1 className="text-4xl md:text-5xl font-black text-gray-900 tracking-tight mb-2">Katalog Pekerjaan</h1>
+                    <p className="text-gray-500 text-lg font-medium">Temukan tugas kompen yang sesuai dengan keahlian anda.</p>
+                </div>
+
+                <div className="flex items-center gap-3 w-full md:w-auto">
+                    <div className="relative group flex-1 md:flex-none">
+                        <input
+                            type="text"
+                            placeholder="Cari pekerjaan..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full md:w-80 px-6 py-4 rounded-full bg-white border-2 border-gray-100 focus:border-[#008C9D] outline-none shadow-lg shadow-gray-100 transition-all font-medium text-gray-700 placeholder:text-gray-400"
+                        />
+                        <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#008C9D] transition-colors w-5 h-5" />
+                    </div>
+                    <button
+                        onClick={() => setShowFilters(!showFilters)}
+                        className={`p-4 rounded-full transition-colors relative ${showFilters || activeFiltersCount > 0 ? 'bg-[#008C9D] text-white' : 'bg-white text-gray-600 border-2 border-gray-100'}`}
+                    >
+                        <Filter size={20} />
+                        {activeFiltersCount > 0 && (
+                            <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#CE2029] text-white text-xs font-bold rounded-full flex items-center justify-center">
+                                {activeFiltersCount}
+                            </span>
+                        )}
+                    </button>
+                </div>
+            </header>
+
+            {showFilters && (
+                <div className="bg-white rounded-2xl border border-gray-100 p-6 space-y-4">
+                    <div className="flex items-center justify-between">
+                        <h3 className="font-bold text-gray-900">Filter Pekerjaan</h3>
+                        {activeFiltersCount > 0 && (
+                            <button
+                                onClick={clearFilters}
+                                className="text-sm font-medium text-[#CE2029] hover:text-[#B01B23] flex items-center gap-1"
+                            >
+                                <X size={14} />
+                                Reset Filter
+                            </button>
+                        )}
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-500 mb-2">Urutkan</label>
+                            <select
+                                value={sortBy}
+                                onChange={(e) => setSortBy(e.target.value)}
+                                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-900 focus:border-[#008C9D] outline-none"
+                            >
+                                {sortOptions.map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-500 mb-2">Status</label>
+                            <select
+                                value={status}
+                                onChange={(e) => setStatus(e.target.value)}
+                                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-900 focus:border-[#008C9D] outline-none"
+                            >
+                                {statusOptions.map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-500 mb-2">Jam Kompen</label>
+                            <select
+                                value={hoursRange}
+                                onChange={(e) => setHoursRange(e.target.value)}
+                                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-900 focus:border-[#008C9D] outline-none"
+                            >
+                                {hoursRanges.map(range => (
+                                    <option key={range.value} value={range.value}>{range.label}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <div className="flex items-center justify-between">
+                <p className="text-gray-500">
+                    Menampilkan <span className="font-bold text-gray-900">{filteredJobs.length}</span> dari {jobs.length} pekerjaan
+                </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-6">
+                {filteredJobs.length === 0 ? (
+                    <div className="text-center py-20 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200">
+                        <p className="text-xl font-bold text-gray-400">Tidak ada pekerjaan yang sesuai filter.</p>
+                        <p className="text-gray-400 mt-2">Coba ubah filter atau kata kunci pencarian.</p>
+                        {activeFiltersCount > 0 && (
+                            <button
+                                onClick={clearFilters}
+                                className="mt-4 px-6 py-2 bg-[#008C9D] text-white rounded-xl font-bold hover:bg-[#007A8A] transition-colors"
+                            >
+                                Reset Filter
+                            </button>
+                        )}
+                    </div>
+                ) : (
+                    filteredJobs.map((job) => {
+                        const isOpen = job.status === "OPEN";
+
+                        return (
+                            <article
+                                key={job.id}
+                                className="group relative bg-white rounded-3xl p-6 border border-gray-100 shadow-sm hover:shadow-xl hover:border-[#008C9D]/30 transition-all duration-300 overflow-hidden"
+                            >
+                                <div className={`absolute left-0 top-0 bottom-0 w-2 ${isOpen ? "bg-[#008C9D]" : "bg-[#CE2029]"}`} />
+
+                                <div className="flex flex-col md:flex-row gap-6 relative z-10">
+                                    <div className="flex-1 space-y-3 pl-4">
+                                        <div className="flex items-center gap-3 mb-1 flex-wrap">
+                                            <span className={`text-xs font-bold ${isOpen ? "text-[#008C9D]" : "text-[#CE2029]"}`}>
+                                                {isOpen ? "TERSEDIA" : "PENUH"}
+                                            </span>
+
+                                            {job.createdBy?.name && (
+                                                <div className="flex items-center gap-1.5 px-2 py-0.5 bg-gray-100 rounded-full text-xs font-bold text-gray-500">
+                                                    <UserCircle size={12} />
+                                                    {job.createdBy.name}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <h3 className="text-2xl font-bold text-gray-900 group-hover:text-[#008C9D] transition-colors">
+                                            {job.title}
+                                        </h3>
+
+                                        <p className="text-gray-500 leading-relaxed max-w-2xl">
+                                            {job.description}
+                                        </p>
+
+                                        <div className="flex gap-6 mt-4 pt-4 border-t border-gray-50 max-w-lg">
+                                            <div className="flex items-center gap-2">
+                                                <div className="p-2 rounded-full bg-blue-50 text-blue-600">
+                                                    <Clock size={16} />
+                                                </div>
+                                                <div>
+                                                    <p className="text-xs text-gray-400 font-bold uppercase tracking-tighter">Kompensasi</p>
+                                                    <p className="text-sm font-bold text-gray-900">{job.hours} Jam</p>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-2">
+                                                <div className="p-2 rounded-full bg-purple-50 text-purple-600">
+                                                    <Users size={16} />
+                                                </div>
+                                                <div>
+                                                    <p className="text-xs text-gray-400 font-bold uppercase tracking-tighter">Sisa Kuota</p>
+                                                    <p className="text-sm font-bold text-gray-900">{job.quota} Mhs</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="w-full md:w-40 flex flex-col justify-center items-center gap-2 md:border-l md:border-dashed md:border-gray-200 pl-0 md:pl-8">
+                                        {['ADMIN', 'PENGAWAS'].includes(userRole || '') ? (
+                                            <div className="flex gap-2 w-full">
+                                                <button
+                                                    onClick={() => router.push(`/dashboard/my-jobs/${job.id}/edit`)}
+                                                    className="flex-1 py-3 rounded-xl font-bold text-[#008C9D] bg-[#008C9D]/10 hover:bg-[#008C9D]/20 transition-colors flex items-center justify-center gap-2"
+                                                >
+                                                    <Edit size={16} />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDelete(job.id)}
+                                                    className="flex-1 py-3 rounded-xl font-bold text-[#CE2029] bg-[#CE2029]/10 hover:bg-[#CE2029]/20 transition-colors flex items-center justify-center gap-2"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+                                        ) : appliedJobIds.includes(job.id) ? (
+                                            <div className="w-full py-4 bg-green-50 text-green-600 rounded-xl font-bold flex flex-col items-center justify-center border border-green-200">
+                                                <CheckCircle size={24} className="mb-1" />
+                                                <span className="text-sm">Terkirim</span>
+                                            </div>
+                                        ) : userRole === 'MAHASISWA' && userTotalHours <= 0 ? (
+                                            <div className="w-full py-4 bg-purple-50 text-purple-600 rounded-xl font-bold flex flex-col items-center justify-center border border-purple-200">
+                                                <CheckCircle size={24} className="mb-1" />
+                                                <span className="text-sm">Bebas Kompen</span>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <button
+                                                    onClick={() => handleApplyClick(job.id)}
+                                                    disabled={!isOpen || applyingId === job.id}
+                                                    className="w-full py-3 md:py-4 px-6 rounded-xl font-bold transition-all duration-300 transform active:scale-95 flex items-center justify-center gap-2 bg-gray-900 text-white shadow-xl shadow-gray-200 hover:bg-[#008C9D] hover:text-white hover:shadow-[#008C9D]/30 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:shadow-none"
+                                                >
+                                                    {applyingId === job.id ? (
+                                                        <>
+                                                            <Loader2 className="animate-spin" size={16} />
+                                                            Apply...
+                                                        </>
+                                                    ) : isOpen ? (
+                                                        <>
+                                                            Apply <ArrowRight size={16} />
+                                                        </>
+                                                    ) : "Closed"}
+                                                </button>
+                                                <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">
+                                                    {isOpen ? "Klik untuk melamar" : "Pendaftaran ditutup"}
+                                                </span>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+                            </article>
+                        );
+                    })
+                )}
+            </div>
+
+            {/* Custom Confirmation Modal */}
+            {confirmState.show && (
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-transparent animate-[fadeIn_0.2s_ease-out]">
+                    <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-[0_0_100px_rgba(0,0,0,0.2)] border border-gray-100 scale-100 animate-[scaleIn_0.2s_ease-out]">
+                        <div className="w-16 h-16 bg-[#F4B41A]/10 rounded-full flex items-center justify-center mb-6 mx-auto">
+                            <AlertTriangle className="w-8 h-8 text-[#F4B41A]" />
+                        </div>
+                        <h3 className="text-xl font-black text-center text-gray-900 mb-2">Konfirmasi Lamaran</h3>
+                        <p className="text-gray-500 text-center text-sm mb-8">
+                            Apakah anda yakin ingin melamar pekerjaan ini? Pastikan anda memenuhi kualifikasi.
+                        </p>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setConfirmState({ show: false, jobId: null })}
+                                className="flex-1 py-3 rounded-xl font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors"
+                            >
+                                Batal
+                            </button>
+                            <button
+                                onClick={confirmApply}
+                                className="flex-1 py-3 rounded-xl font-bold text-white bg-[#008C9D] hover:bg-[#007A8A] transition-colors"
+                            >
+                                Ya, Lamar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Custom Toast Notification */}
+            <div className={`fixed bottom-8 right-8 z-50 transform transition-all duration-300 ${toast.show ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0 pointer-events-none'}`}>
+                <div className={`flex items-center gap-3 px-6 py-4 rounded-2xl shadow-xl border ${toast.type === 'success' ? 'bg-white border-green-100' : 'bg-white border-red-100'}`}>
+                    <div className={`p-2 rounded-full ${toast.type === 'success' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                        {toast.type === 'success' ? <CheckCircle size={20} /> : <XCircle size={20} />}
+                    </div>
+                    <div>
+                        <h4 className={`font-bold text-sm ${toast.type === 'success' ? 'text-green-800' : 'text-red-800'}`}>
+                            {toast.type === 'success' ? 'Berhasil' : 'Gagal'}
+                        </h4>
+                        <p className="text-xs text-gray-500 font-medium">{toast.message}</p>
+                    </div>
+                    <button onClick={() => setToast(prev => ({ ...prev, show: false }))} className="text-gray-400 hover:text-gray-600 ml-2">
+                        <X size={16} />
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}

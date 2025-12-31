@@ -2,25 +2,76 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #0f172a;
+
+  /* PNJ Green/Teal (Primary) */
+  --color-pnj-primary: #008C9D;
+  --color-pnj-primary-50: #f0fdf9;
+  --color-pnj-primary-100: #ccfbf1;
+  --color-pnj-primary-200: #99f6e4;
+  --color-pnj-primary-300: #5eead4;
+  --color-pnj-primary-400: #2dd4bf;
+  --color-pnj-primary-600: #0d9488;
+  --color-pnj-primary-700: #0f766e;
+  --color-pnj-primary-800: #115e59;
+  --color-pnj-primary-900: #134e4a;
+
+  /* PNJ Yellow/Orange (Secondary) */
+  --color-pnj-secondary: #F4B41A;
+  --color-pnj-secondary-50: #fffbeb;
+  --color-pnj-secondary-100: #fef3c7;
+  --color-pnj-secondary-200: #fde68a;
+  --color-pnj-secondary-600: #d97706;
+  --color-pnj-secondary-800: #92400e;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+
+  /* Map old pnj-teal to new primary if needed, or just use new names */
+  --color-pnj-teal: var(--color-pnj-primary);
+  /* Backward compatibility */
+
+  --color-primary: var(--color-pnj-primary);
+  --color-secondary: var(--color-pnj-secondary);
+
+  --color-pnj-green: var(--color-pnj-primary);
+  --color-pnj-yellow: var(--color-pnj-secondary);
+
+  --animate-float: float 6s ease-in-out infinite;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@keyframes float {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-10px);
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+html {
+  scroll-behavior: smooth;
 }
