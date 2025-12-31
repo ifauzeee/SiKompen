@@ -18,6 +18,7 @@ interface AdminStats {
 interface SupervisorStats {
     myJobs: number;
     pendingValidations: number;
+    verifyingCount: number;
 }
 
 interface StudentStats {
@@ -114,18 +115,28 @@ async function getDashboardData() {
             }
         });
 
+        const verifyingCount = await prisma.jobApplication.count({
+            where: {
+                status: 'VERIFYING',
+                job: { createdById: cleanUser.id }
+            }
+        });
+
         const pendingApps = await getApplicationsByStatus('PENDING', cleanUser.id);
         const acceptedApps = await getApplicationsByStatus('ACCEPTED', cleanUser.id);
+        const verifyingApps = await getApplicationsByStatus('VERIFYING', cleanUser.id);
 
         return {
             role: 'PENGAWAS',
             user: { ...cleanUser, role: 'PENGAWAS' },
             supervisorStats: {
                 myJobs,
-                pendingValidations
+                pendingValidations,
+                verifyingCount
             },
             applications: pendingApps,
-            acceptedApplications: acceptedApps
+            acceptedApplications: acceptedApps,
+            verifyingApplications: verifyingApps
         };
     }
 
@@ -217,12 +228,14 @@ export default async function DashboardPage() {
 
     if (dashboardData.role === 'PENGAWAS') {
         const { supervisorStats, applications, acceptedApplications } = dashboardData;
+        const verifyingApplications = (dashboardData as any).verifyingApplications || [];
         return (
             <SupervisorDashboard
                 user={dashboardData.user}
                 stats={supervisorStats}
                 applications={applications}
                 acceptedApplications={acceptedApplications}
+                verifyingApplications={verifyingApplications}
             />
         );
     }

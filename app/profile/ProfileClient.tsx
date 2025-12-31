@@ -74,12 +74,12 @@ export default function ProfileClient({ user }: { user: User }) {
         <div className="pt-8 px-4 sm:px-8 max-w-[1600px] mx-auto min-h-screen pb-12 space-y-8">
             <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-4">
                 <div>
-                    <h1 className="text-4xl md:text-5xl font-black text-gray-900 tracking-tight mb-2">Profil Saya</h1>
-                    <p className="text-gray-500 text-lg font-medium">Kelola informasi akun dan keamanan Anda.</p>
+                    <h1 className="text-3xl md:text-5xl font-black text-gray-900 tracking-tight mb-2">Profil Saya</h1>
+                    <p className="text-gray-500 text-sm md:text-lg font-medium">Kelola informasi akun dan keamanan Anda.</p>
                 </div>
             </header>
 
-            <div className="bg-white rounded-[2.5rem] p-8 border border-gray-100 shadow-sm">
+            <div className="bg-white rounded-[1.5rem] md:rounded-[2.5rem] p-4 md:p-8 border border-gray-100 shadow-sm">
                 <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
                     <Lock className="text-[#008C9D]" size={24} />
                     Ubah Password
@@ -108,7 +108,7 @@ export default function ProfileClient({ user }: { user: User }) {
                                 onChange={(e) => setCurrentPassword(e.target.value)}
                                 required
                                 placeholder="Masukkan password saat ini"
-                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-[#008C9D] focus:ring-4 focus:ring-[#008C9D]/10 outline-none transition-all placeholder:text-gray-400"
+                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-[#008C9D] focus:ring-4 focus:ring-[#008C9D]/10 outline-none transition-all placeholder:text-gray-400 text-sm md:text-base"
                             />
                         </div>
 
@@ -121,7 +121,7 @@ export default function ProfileClient({ user }: { user: User }) {
                                 required
                                 minLength={6}
                                 placeholder="Minimal 6 karakter"
-                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-[#008C9D] focus:ring-4 focus:ring-[#008C9D]/10 outline-none transition-all placeholder:text-gray-400"
+                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-[#008C9D] focus:ring-4 focus:ring-[#008C9D]/10 outline-none transition-all placeholder:text-gray-400 text-sm md:text-base"
                             />
                         </div>
 
@@ -134,7 +134,7 @@ export default function ProfileClient({ user }: { user: User }) {
                                 required
                                 minLength={6}
                                 placeholder="Ulangi password baru"
-                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-[#008C9D] focus:ring-4 focus:ring-[#008C9D]/10 outline-none transition-all placeholder:text-gray-400"
+                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-[#008C9D] focus:ring-4 focus:ring-[#008C9D]/10 outline-none transition-all placeholder:text-gray-400 text-sm md:text-base"
                             />
                         </div>
                     </div>
@@ -143,7 +143,7 @@ export default function ProfileClient({ user }: { user: User }) {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="px-8 py-3 bg-[#008C9D] text-white rounded-xl font-bold hover:shadow-lg hover:shadow-[#008C9D]/30 hover:bg-[#007A8A] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                            className="w-full md:w-auto px-8 py-3 bg-[#008C9D] text-white rounded-xl font-bold hover:shadow-lg hover:shadow-[#008C9D]/30 hover:bg-[#007A8A] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm md:text-base"
                         >
                             {loading ? (
                                 <>

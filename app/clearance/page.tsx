@@ -15,5 +15,17 @@ export default async function ClearancePage() {
     const bankSetting = await prisma.systemSettings.findUnique({ where: { key: 'bank_account' } });
     const bankInfo = bankSetting?.value || 'BNI 1234567890 a.n. Politeknik Negeri Jakarta';
 
-    return <ClearanceClient currentDebt={user.totalHours} userId={user.id} bankInfo={bankInfo} />;
+    return <ClearanceClient
+        currentDebt={user.totalHours}
+        userId={user.id}
+        bankInfo={bankInfo}
+        isLibraryClear={user.isLibraryClear}
+        isAdminClear={user.isAdminClear}
+        userData={{
+            name: user.name || '-',
+            nim: user.nim || '-',
+            prodi: user.prodi || 'Teknik Informatika',
+            kelas: user.kelas || '-'
+        }}
+    />;
 }

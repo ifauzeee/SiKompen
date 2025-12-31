@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useDialog } from "@/contexts/DialogContext";
-import { Check, X, FileText, Clock, AlertCircle, TrendingUp, Users, Wallet, History, AlertTriangle } from "lucide-react";
+import { Check, X, FileText, Clock, AlertCircle, TrendingUp, Users, Wallet, History, AlertTriangle, ArrowUpRight } from "lucide-react";
 import { verifyPayment } from "@/app/actions/payment";
 import Image from "next/image";
 
@@ -328,19 +328,51 @@ export default function FinanceDashboardClient({ payments, stats, history, debto
             </div>
 
             {selectedProof && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/90 backdrop-blur-md" onClick={() => setSelectedProof(null)}>
-                    <div className="relative bg-white rounded-2xl overflow-hidden max-w-3xl w-full max-h-[90vh] shadow-2xl animate-in zoom-in-95 duration-200">
-                        <button
-                            onClick={() => setSelectedProof(null)}
-                            className="absolute top-4 right-4 p-2 bg-black/50 rounded-full hover:bg-black text-white transition-colors"
-                        >
-                            <X size={24} />
-                        </button>
-                        <img
-                            src={selectedProof}
-                            alt="Bukti Pembayaran"
-                            className="w-full h-full object-contain"
-                        />
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/95 backdrop-blur-md" onClick={() => setSelectedProof(null)}>
+                    <div className="relative bg-white rounded-3xl overflow-hidden max-w-3xl w-full max-h-[90vh] shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col" onClick={e => e.stopPropagation()}>
+                        <div className="flex justify-between items-center p-4 border-b border-gray-100">
+                            <h3 className="font-bold text-gray-900">Bukti Pembayaran</h3>
+                            <button
+                                onClick={() => setSelectedProof(null)}
+                                className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 text-gray-600 transition-colors"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="flex-1 overflow-auto bg-gray-50 flex items-center justify-center min-h-[300px] relative p-4">
+                            <img
+                                src={selectedProof}
+                                alt="Bukti Pembayaran"
+                                className="max-w-full max-h-[60vh] object-contain rounded-lg shadow-sm"
+                                onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                    e.currentTarget.parentElement?.classList.add('flex-col');
+                                }}
+                            />
+                            <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center pointer-events-none z-0">
+                                <p className="text-gray-400 font-medium mb-2">Preview mungkin tidak tersedia untuk jenis link ini.</p>
+                                <p className="text-xs text-gray-300">Silahkan buka link asli di bawah.</p>
+                            </div>
+                        </div>
+
+                        <div className="p-4 bg-white border-t border-gray-100 flex justify-end gap-3">
+                            <button
+                                onClick={() => setSelectedProof(null)}
+                                className="px-4 py-2 text-gray-600 font-bold hover:bg-gray-50 rounded-xl transition-colors"
+                            >
+                                Tutup
+                            </button>
+                            <a
+                                href={selectedProof}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-6 py-2 bg-[#008C9D] text-white font-bold rounded-xl hover:bg-[#007A8A] transition-colors flex items-center gap-2 shadow-lg shadow-[#008C9D]/20 transform active:scale-95"
+                            >
+                                <span>Buka Link Asli</span>
+                                <ArrowUpRight size={16} />
+                            </a>
+                        </div>
                     </div>
                 </div>
             )}

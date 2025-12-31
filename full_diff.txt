@@ -1,0 +1,3079 @@
+﻿diff --git a/app/actions/applications.ts b/app/actions/applications.ts
+index c7bdf9f..f9e1acd 100644
+--- a/app/actions/applications.ts
++++ b/app/actions/applications.ts
+@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
+ import { getSessionUser } from "./auth";
+ import { revalidatePath } from "next/cache";
+ 
+-export async function getApplicationsByStatus(status: 'PENDING' | 'ACCEPTED' = 'PENDING', supervisorId?: number) {
++export async function getApplicationsByStatus(status: 'PENDING' | 'ACCEPTED' | 'VERIFYING' = 'PENDING', supervisorId?: number) {
+     const user = await getSessionUser();
+     if (!user || !['ADMIN', 'PENGAWAS'].includes(user.role)) return [];
+ 
+@@ -35,6 +35,48 @@ export async function getApplicationsByStatus(status: 'PENDING' | 'ACCEPTED' = '
+     }
+ }
+ 
++export async function submitJobProof(appId: number, proof1: string, proof2: string, note: string) {
++    const user = await getSessionUser();
++    if (!user) return { error: "Unauthorized" };
++
++    try {
++        const app = await prisma.jobApplication.findUnique({
++            where: { id: appId },
++            include: { user: true }
++        });
++
++        if (!app) return { error: "Lamaran tidak ditemukan" };
++        if (app.userId !== user.id) return { error: "Unauthorized" };
++        if (app.status !== 'ACCEPTED') return { error: "Hanya lamaran yang diterima yang bisa dikirim bukti." };
++
++        await prisma.jobApplication.update({
++            where: { id: appId },
++            data: {
++                proofImage1: proof1,
++                proofImage2: proof2,
++                submissionNote: note,
++                status: 'VERIFYING'
++            }
++        });
++
++        await prisma.activityLog.create({
++            data: {
++                userId: user.id,
++                action: "SUBMIT_PROOF",
++                targetType: 'APPLICATION',
++                targetId: appId,
++                details: `Mengirim bukti pengerjaan.`
++            }
++        });
++
++        revalidatePath('/dashboard/my-applications');
++        revalidatePath('/dashboard/my-jobs');
++        return { success: true };
++    } catch (e: any) {
++        return { error: e.message || "Gagal mengirim bukti." };
++    }
++}
++
+ export async function updateApplicationStatus(appId: number, status: 'ACCEPTED' | 'COMPLETED' | 'REJECTED') {
+     const user = await getSessionUser();
+     if (!user || !['ADMIN', 'PENGAWAS'].includes(user.role)) return { error: 'Unauthorized' };
+@@ -52,17 +94,9 @@ export async function updateApplicationStatus(appId: number, status: 'ACCEPTED'
+                 throw new Error('Unauthorized: Anda tidak memiliki akses ke lamaran ini.');
+             }
+ 
+-            if (status === 'ACCEPTED' && app.status !== 'PENDING') {
+-                throw new Error('Hanya aplikasi PENDING yang bisa di-ACCEPT.');
+-            }
+-            if (status === 'COMPLETED' && app.status !== 'ACCEPTED') {
+-                throw new Error('Hanya aplikasi ACCEPTED yang bisa di-COMPLETE.');
+-            }
+-
+             if (status === 'ACCEPTED') {
+-                if (app.job.quota <= 0) {
+-                    throw new Error('Kuota pekerjaan sudah penuh.');
+-                }
++                if (app.status !== 'PENDING') throw new Error('Hanya aplikasi PENDING yang bisa di-ACCEPT.');
++                if (app.job.quota <= 0) throw new Error('Kuota pekerjaan sudah penuh.');
+ 
+                 const updatedJob = await tx.job.update({
+                     where: { id: app.job.id },
+@@ -83,9 +117,12 @@ export async function updateApplicationStatus(appId: number, status: 'ACCEPTED'
+             }
+ 
+             else if (status === 'COMPLETED') {
++                if (!['ACCEPTED', 'VERIFYING'].includes(app.status)) {
++                    throw new Error('Hanya aplikasi ACCEPTED/VERIFYING yang bisa di-COMPLETE.');
++                }
++
+                 const hoursToDeduct = app.job.hours;
+                 const currentDebt = app.user.totalHours;
+-
+                 const newDebt = Math.max(0, currentDebt - hoursToDeduct);
+ 
+                 await tx.user.update({
+@@ -97,13 +134,9 @@ export async function updateApplicationStatus(appId: number, status: 'ACCEPTED'
+                     const existingClearance = await tx.clearanceRequest.findFirst({
+                         where: { userId: app.user.id }
+                     });
+-
+                     if (!existingClearance) {
+                         await tx.clearanceRequest.create({
+-                            data: {
+-                                userId: app.user.id,
+-                                status: 'PENDING'
+-                            }
++                            data: { userId: app.user.id, status: 'PENDING' }
+                         });
+                     }
+                 }
+@@ -115,7 +148,7 @@ export async function updateApplicationStatus(appId: number, status: 'ACCEPTED'
+             }
+ 
+             else if (status === 'REJECTED') {
+-                if (app.status === 'ACCEPTED') {
++                if (app.status === 'ACCEPTED' || app.status === 'VERIFYING') {
+                     await tx.job.update({
+                         where: { id: app.job.id },
+                         data: {
+@@ -150,6 +183,7 @@ export async function updateApplicationStatus(appId: number, status: 'ACCEPTED'
+         revalidatePath('/dashboard');
+         revalidatePath('/jobs');
+         revalidatePath('/dashboard/my-jobs');
++        revalidatePath('/my-applications');
+         return { success: true };
+     } catch (e: any) {
+         console.error(e);
+@@ -173,55 +207,61 @@ export async function applyForJob(jobId: number) {
+     }
+ 
+     try {
+-        const job = await prisma.job.findUnique({
+-            where: { id: jobId }
+-        });
+-
+-        if (!job) {
+-            return { error: "Pekerjaan tidak ditemukan." };
+-        }
++        await prisma.$transaction(async (tx) => {
++            const job = await tx.job.findUnique({
++                where: { id: jobId }
++            });
+ 
+-        if (job.status !== 'OPEN' || job.quota <= 0) {
+-            return { error: "Lowongan ini sudah ditutup atau penuh." };
+-        }
++            if (!job) {
++                throw new Error("Pekerjaan tidak ditemukan.");
++            }
+ 
+-        const existingApp = await prisma.jobApplication.findFirst({
+-            where: {
+-                jobId: jobId,
+-                userId: user.id
++            if (job.status !== 'OPEN' || job.quota <= 0) {
++                throw new Error("Lowongan ini sudah ditutup atau penuh.");
+             }
+-        });
+ 
+-        if (existingApp) {
+-            return { error: "Anda sudah melamar pekerjaan ini." };
+-        }
++            const existingApp = await tx.jobApplication.findFirst({
++                where: {
++                    jobId: jobId,
++                    userId: user.id
++                }
++            });
+ 
+-        const activeAppsCount = await prisma.jobApplication.count({
+-            where: {
+-                userId: user.id,
+-                status: 'PENDING'
++            if (existingApp) {
++                throw new Error("Anda sudah melamar pekerjaan ini.");
+             }
+-        });
+ 
+-        if (activeAppsCount >= 3) {
+-            return { error: "Anda sudah memiliki 3 lamaran aktif. Tunggu proses validasi sebelum melamar lagi." };
+-        }
+ 
+-        await prisma.jobApplication.create({
+-            data: {
+-                jobId,
+-                userId: user.id,
+-                status: 'PENDING',
+-                appliedAt: new Date()
++
++            const activeAppsCount = await tx.jobApplication.count({
++                where: {
++                    userId: user.id,
++                    status: 'PENDING'
++                }
++            });
++
++            if (activeAppsCount >= 3) {
++                throw new Error("Anda sudah memiliki 3 lamaran aktif. Tunggu proses validasi sebelum melamar lagi.");
+             }
++
++            await tx.jobApplication.create({
++                data: {
++                    jobId,
++                    userId: user.id,
++                    status: 'PENDING',
++                    appliedAt: new Date()
++                }
++            });
++
++
+         });
+ 
+         revalidatePath('/jobs');
+         revalidatePath('/dashboard');
+ 
+         return { success: true };
+-    } catch (e) {
++    } catch (e: any) {
+         console.error("Apply Job Error:", e);
+-        return { error: "Terjadi kesalahan saat mengirim lamaran." };
++        return { error: e.message || "Terjadi kesalahan saat mengirim lamaran." };
+     }
+-}
++}
+\ No newline at end of file
+diff --git a/app/clearance/ClearanceClient.tsx b/app/clearance/ClearanceClient.tsx
+index c0dac04..7902fba 100644
+--- a/app/clearance/ClearanceClient.tsx
++++ b/app/clearance/ClearanceClient.tsx
+@@ -5,13 +5,119 @@ import { CheckCircle2, XCircle, ArrowRight, ShieldCheck, Wallet, Upload, Loader2
+ import { createPayment } from "@/app/actions/payment";
+ import { useDialog } from "@/contexts/DialogContext";
+ import React from 'react';
++import jsPDF from 'jspdf';
+ 
+-export default function ClearanceClient({ currentDebt, userId, bankInfo }: { currentDebt: number, userId: number, bankInfo: string }) {
++type ClearanceClientProps = {
++    currentDebt: number;
++    userId: number;
++    bankInfo: string;
++    isLibraryClear: boolean;
++    isAdminClear: boolean;
++    userData: {
++        name: string;
++        nim: string;
++        prodi: string;
++        kelas: string;
++    };
++};
++
++export default function ClearanceClient({ currentDebt, userId, bankInfo, isLibraryClear, isAdminClear, userData }: ClearanceClientProps) {
+     const container = useRef(null);
+     const { showAlert, showConfirm } = useDialog();
+-    const isEligible = currentDebt <= 0;
+-    const [isPaying, setIsPaying] = useState(false);
++    const isEligible = currentDebt <= 0 && isLibraryClear && isAdminClear;
++
++    const generateLetter = () => {
++        const doc = new jsPDF();
++        const pageWidth = doc.internal.pageSize.width;
++        const pageHeight = doc.internal.pageSize.height;
++
++        doc.saveGraphicsState();
++        doc.setTextColor(220, 220, 220);
++        doc.setFontSize(60);
++        doc.setFont('times', 'bolditalic');
++
++        doc.text('LUNAS KOMPEN', pageWidth / 2, pageHeight / 2, {
++            align: 'center',
++            angle: 45
++        });
++
++        doc.setFontSize(10);
++        doc.text('Dokumen Asli SiKompen PNJ', 20, 10);
++
++        doc.restoreGraphicsState();
++        doc.setTextColor(0, 0, 0);
++
++        doc.setFont('times', 'bold');
++        doc.setFontSize(14);
++        doc.text('KEMENTERIAN PENDIDIKAN, KEBUDAYAAN, RISET, DAN TEKNOLOGI', pageWidth / 2, 20, { align: 'center' });
++        doc.setFontSize(16);
++        doc.text('POLITEKNIK NEGERI JAKARTA', pageWidth / 2, 28, { align: 'center' });
++        doc.setFontSize(12);
++        doc.setFont('times', 'normal');
++        doc.text('Jalan Prof. Dr. G.A. Siwabessy, Kampus UI, Depok 16425', pageWidth / 2, 35, { align: 'center' });
++        doc.text('Laman: https://www.pnj.ac.id', pageWidth / 2, 40, { align: 'center' });
++
++        doc.setLineWidth(1);
++        doc.line(20, 45, pageWidth - 20, 45);
++
++        doc.setFont('times', 'bold');
++        doc.setFontSize(14);
++        doc.text('SURAT KETERANGAN BEBAS KOMPENSASI', pageWidth / 2, 60, { align: 'center' });
++        doc.setLineWidth(0.5);
++        doc.line(pageWidth / 2 - 55, 61, pageWidth / 2 + 55, 61);
++
++        doc.setFont('times', 'normal');
++        doc.setFontSize(12);
++
++        const startY = 80;
++        const lineHeight = 8;
++
++        doc.text('Yang bertanda tangan di bawah ini menerangkan bahwa:', 25, startY);
++
++        doc.text('Nama', 35, startY + (lineHeight * 2));
++        doc.text(':', 65, startY + (lineHeight * 2));
++        doc.setFont('times', 'bold');
++        doc.text(userData.name, 70, startY + (lineHeight * 2));
++        doc.setFont('times', 'normal');
++
++        doc.text('NIM', 35, startY + (lineHeight * 3));
++        doc.text(':', 65, startY + (lineHeight * 3));
++        doc.text(userData.nim, 70, startY + (lineHeight * 3));
+ 
++        doc.text('Program Studi', 35, startY + (lineHeight * 4));
++        doc.text(':', 65, startY + (lineHeight * 4));
++        doc.text(userData.prodi, 70, startY + (lineHeight * 4));
++
++        doc.text('Kelas', 35, startY + (lineHeight * 5));
++        doc.text(':', 65, startY + (lineHeight * 5));
++        doc.text(userData.kelas, 70, startY + (lineHeight * 5));
++
++        const contentY = startY + (lineHeight * 7);
++        const textIsi = `Telah menyelesaikan seluruh kewajiban jam kompensasi (0 Jam Hutang) pada Semester Ganjil Tahun Akademik 2025/2026.`;
++        const splitText = doc.splitTextToSize(textIsi, pageWidth - 50);
++        doc.text(splitText, 25, contentY);
++
++        doc.text('Demikian surat keterangan ini dibuat untuk dapat dipergunakan sebagaimana mestinya.', 25, contentY + 15);
++
++        const dateNow = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
++        const ttdY = contentY + 40;
++        const ttdX = pageWidth - 80;
++
++        doc.text(`Depok, ${dateNow}`, ttdX, ttdY);
++        doc.text('Kepala Bagian Administrasi', ttdX, ttdY + 6);
++
++        doc.text('_______________________', ttdX, ttdY + 35);
++
++        doc.setFontSize(8);
++        doc.setTextColor(150, 150, 150);
++        const randomId = Math.random().toString(36).substring(2, 10).toUpperCase();
++        doc.text(`Dokumen ini digenerate sah oleh Sistem SiKompen PNJ. Doc ID: ${randomId}`, 20, pageHeight - 15);
++
++        const fileName = `Surat_Bebas_Kompen_${userData.nim}.pdf`;
++        doc.save(fileName);
++    };
++
++    const [isPaying, setIsPaying] = useState(false);
+     const [payHours] = useState<number>(currentDebt);
+     const [proofFile, setProofFile] = useState<string | null>(null);
+     const [isSubmitting, startTransition] = useTransition();
+@@ -20,21 +126,11 @@ export default function ClearanceClient({ currentDebt, userId, bankInfo }: { cur
+     const totalAmount = payHours * RATE_PER_HOUR;
+ 
+     const requirements = [
+-        { id: 1, label: "Lunasi Seluruh Jam Kompen", Met: isEligible, desc: `${Math.max(0, currentDebt)} jam tersisa.` },
+-        { id: 2, label: "Bebas Pustaka", Met: true, desc: "Tidak ada tanggungan buku di perpustakaan." },
+-        { id: 3, label: "Administrasi Prodi", Met: true, desc: "Berkas administrasi semester ini lengkap." },
++        { id: 1, label: "Lunasi Seluruh Jam Kompen", Met: currentDebt <= 0, desc: `${Math.max(0, currentDebt)} jam tersisa.` },
++        { id: 2, label: "Bebas Pustaka", Met: isLibraryClear, desc: isLibraryClear ? "Tidak ada tanggungan buku di perpustakaan." : "Masih ada tanggungan di perpustakaan." },
++        { id: 3, label: "Administrasi Prodi", Met: isAdminClear, desc: isAdminClear ? "Berkas administrasi semester ini lengkap." : "Berkas administrasi belum lengkap." },
+     ];
+ 
+-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+-        const file = e.target.files?.[0];
+-        if (file) {
+-            const reader = new FileReader();
+-            reader.onloadend = () => {
+-                setProofFile(reader.result as string);
+-            };
+-            reader.readAsDataURL(file);
+-        }
+-    };
+ 
+     const handlePaymentSubmit = async (e: React.FormEvent) => {
+         e.preventDefault();
+@@ -77,14 +173,13 @@ export default function ClearanceClient({ currentDebt, userId, bankInfo }: { cur
+ 
+     return (
+         <div ref={container} className="pt-8 px-4 sm:px-8 max-w-[1600px] mx-auto min-h-screen pb-12 space-y-8 animate-in fade-in duration-700">
+-
+             <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-4 relative">
+                 <div className="absolute top-0 right-0 -mt-10 -mr-10 w-64 h-64 bg-[#008C9D]/5 rounded-full blur-3xl -z-10 pointer-events-none"></div>
+                 <div>
+-                    <h1 className="text-4xl md:text-5xl font-black text-gray-900 tracking-tight mb-2">
++                    <h1 className="text-3xl md:text-5xl font-black text-gray-900 tracking-tight mb-2">
+                         Bebas <span className="text-[#008C9D]">Kompen</span>
+                     </h1>
+-                    <p className="text-gray-500 text-lg font-medium">
++                    <p className="text-gray-500 text-base md:text-lg font-medium">
+                         Status kelayakan pengajuan surat bebas kompensasi Anda.
+                     </p>
+                 </div>
+@@ -92,7 +187,7 @@ export default function ClearanceClient({ currentDebt, userId, bankInfo }: { cur
+                 {!isEligible && (
+                     <button
+                         onClick={() => setIsPaying(!isPaying)}
+-                        className="px-6 py-3 bg-gray-900 text-white rounded-xl font-bold flex items-center gap-2 hover:bg-gray-800 transition-colors shadow-lg shadow-gray-200"
++                        className="w-full md:w-auto px-6 py-3 bg-gray-900 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-gray-800 transition-colors shadow-lg shadow-gray-200"
+                     >
+                         <Wallet size={20} />
+                         <span>{isPaying ? 'Batal Bayar' : 'Bayar Kompen'}</span>
+@@ -101,20 +196,20 @@ export default function ClearanceClient({ currentDebt, userId, bankInfo }: { cur
+             </header>
+ 
+             {isPaying && !isEligible && (
+-                <div className="bg-white rounded-[2.5rem] p-8 border border-gray-100 shadow-xl shadow-gray-100/50 mb-8 animate-in slide-in-from-top-4 duration-500">
+-                    <h3 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
++                <div className="bg-white rounded-[1.5rem] md:rounded-[2.5rem] p-4 pos md:p-8 border border-gray-100 shadow-xl shadow-gray-100/50 mb-8 animate-in slide-in-from-top-4 duration-500">
++                    <h3 className="text-xl md:text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+                         <Wallet className="text-[#008C9D]" />
+                         Form Pembayaran Kompen
+                     </h3>
+ 
+-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
++                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
+                         <div className="space-y-6">
+-                            <div className="p-6 bg-blue-50 rounded-2xl border border-blue-100">
+-                                <h4 className="font-bold text-blue-800 mb-2 flex items-center gap-2">
++                            <div className="p-4 md:p-6 bg-blue-50 rounded-2xl border border-blue-100">
++                                <h4 className="font-bold text-blue-800 mb-2 flex items-center gap-2 text-sm md:text-base">
+                                     <Info size={18} />
+                                     Informasi Pembayaran
+                                 </h4>
+-                                <ul className="text-sm text-blue-700 space-y-2 list-disc list-inside">
++                                <ul className="text-xs md:text-sm text-blue-700 space-y-2 list-disc list-inside">
+                                     <li>Biaya kompen adalah <strong>Rp 10.000</strong> per jam.</li>
+                                     <li>Anda memiliki hutang <strong>{currentDebt} jam</strong>.</li>
+                                     <li>Silahkan transfer ke Bank <strong>{bankInfo}</strong>.</li>
+@@ -122,10 +217,10 @@ export default function ClearanceClient({ currentDebt, userId, bankInfo }: { cur
+                                 </ul>
+                             </div>
+ 
+-                            <div className="bg-gray-50 p-6 rounded-2xl border border-gray-200">
+-                                <label className="block text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Total Tagihan</label>
+-                                <div className="text-4xl font-black text-gray-900 flex items-baseline gap-1">
+-                                    <span className="text-lg text-gray-400 font-bold">Rp</span>
++                            <div className="bg-gray-50 p-4 md:p-6 rounded-2xl border border-gray-200">
++                                <label className="block text-xs md:text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Total Tagihan</label>
++                                <div className="text-3xl md:text-4xl font-black text-gray-900 flex items-baseline gap-1">
++                                    <span className="text-base md:text-lg text-gray-400 font-bold">Rp</span>
+                                     {totalAmount.toLocaleString('id-ID')}
+                                 </div>
+                             </div>
+@@ -134,33 +229,33 @@ export default function ClearanceClient({ currentDebt, userId, bankInfo }: { cur
+                         <form onSubmit={handlePaymentSubmit} className="space-y-6">
+                             <input type="hidden" name="payHours" value={payHours} />
+ 
+-                            <div className="space-y-2">
+-                                <label className="text-sm font-bold text-gray-700">Bukti Transfer</label>
+-                                <div className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center hover:bg-gray-50 transition-colors cursor-pointer relative group">
++                            <div className="space-y-4">
++                                <label className="text-sm font-bold text-gray-700">Bukti Transfer (Link)</label>
++                                <div className="space-y-2">
+                                     <input
+-                                        type="file"
+-                                        accept="image/*"
+-                                        onChange={handleFileChange}
+-                                        className="absolute inset-0 opacity-0 cursor-pointer"
++                                        type="url"
++                                        placeholder="Paste link Google Drive / Dropbox di sini..."
++                                        value={proofFile || ''}
++                                        onChange={(e) => setProofFile(e.target.value)}
++                                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#008C9D] focus:ring-4 focus:ring-[#008C9D]/10 transition-all outline-none font-medium placeholder:font-normal placeholder:text-gray-400 text-sm md:text-base"
+                                     />
+-                                    {proofFile ? (
+-                                        <div className="flex items-center justify-center gap-2 text-green-600 font-bold">
+-                                            <CheckCircle2 size={24} />
+-                                            <span>File Teripilih</span>
+-                                        </div>
+-                                    ) : (
+-                                        <div className="flex flex-col items-center gap-2 text-gray-400 group-hover:text-gray-600">
+-                                            <Upload size={24} />
+-                                            <span className="font-medium">Klik untuk upload gambar</span>
+-                                        </div>
+-                                    )}
++                                    <p className="text-xs text-gray-400 leading-relaxed">
++                                        *Silahkan upload bukti transfer ke Google Drive/Cloud Storage Anda, pastikan akses link dibuka untuk publik (Anyone with the link), lalu tempel linknya di sini.
++                                    </p>
+                                 </div>
++
++                                {proofFile && proofFile.length > 10 && (
++                                    <div className="flex items-center gap-2 text-green-600 font-bold bg-green-50 px-4 py-3 rounded-xl border border-green-100">
++                                        <CheckCircle2 size={20} />
++                                        <span className="text-sm">Link siap dikirim</span>
++                                    </div>
++                                )}
+                             </div>
+ 
+                             <button
+                                 type="submit"
+                                 disabled={isSubmitting || payHours <= 0 || !proofFile}
+-                                className="w-full py-4 rounded-xl bg-[#008C9D] text-white font-bold hover:bg-[#007A8A] transition-colors shadow-lg shadow-[#008C9D]/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
++                                className="w-full py-3 md:py-4 rounded-xl bg-[#008C9D] text-white font-bold hover:bg-[#007A8A] transition-colors shadow-lg shadow-[#008C9D]/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm md:text-base"
+                             >
+                                 {isSubmitting ? <Loader2 className="animate-spin" /> : <Wallet size={20} />}
+                                 <span>Kirim Pembayaran</span>
+@@ -170,25 +265,24 @@ export default function ClearanceClient({ currentDebt, userId, bankInfo }: { cur
+                 </div>
+             )}
+ 
+-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-24">
+-
+-                <div className="lg:col-span-4 flex flex-col">
++            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-24">
++                <div className="lg:col-span-4 flex flex-col lg:pl-6">
+                     <div className="relative mb-8">
+                         <div className={`absolute -top-10 -left-10 w-64 h-64 rounded-full blur-3xl opacity-20 ${isEligible ? 'bg-[#008C9D]' : 'bg-[#F4B41A]'}`} />
+ 
+                         <div className="relative">
+-                            <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-2">Sisa Tanggungan</h2>
++                            <h2 className="text-xs md:text-sm font-bold text-gray-400 uppercase tracking-widest mb-2">Sisa Tanggungan</h2>
+                             <div className="flex items-baseline gap-2">
+-                                <span className={`text-9xl font-black tracking-tighter leading-none ${isEligible ? 'text-[#008C9D]' : 'text-[#F4B41A]'}`}>
++                                <span className={`text-7xl md:text-9xl font-black tracking-tighter leading-none ${isEligible ? 'text-[#008C9D]' : 'text-[#F4B41A]'}`}>
+                                     {Math.max(0, currentDebt)}
+                                 </span>
+-                                <span className="text-4xl font-bold text-gray-300">Jam</span>
++                                <span className="text-2xl md:text-4xl font-bold text-gray-300">Jam</span>
+                             </div>
+                         </div>
+                     </div>
+ 
+                     <div className="space-y-6">
+-                        <p className="text-lg font-medium text-gray-800 leading-relaxed">
++                        <p className="text-base md:text-lg font-medium text-gray-800 leading-relaxed">
+                             {isEligible
+                                 ? "Luar biasa! Seluruh kewajiban kompen Anda telah tuntas."
+                                 : "Anda belum memenuhi syarat. Segera selesaikan sisa jam kompen Anda sebelum tenggat waktu."
+@@ -197,36 +291,37 @@ export default function ClearanceClient({ currentDebt, userId, bankInfo }: { cur
+ 
+                         <button
+                             disabled={!isEligible}
+-                            className={`group flex items-center gap-4 text-lg font-bold transition-all
++                            onClick={generateLetter}
++                            className={`group flex items-center gap-4 text-base md:text-lg font-bold transition-all
+                             ${isEligible
+-                                    ? 'text-[#008C9D] hover:gap-6'
++                                    ? 'text-[#008C9D] hover:gap-6 cursor-pointer'
+                                     : 'text-gray-300 cursor-not-allowed'
+                                 }`}
+                         >
+                             {isEligible ? "Unduh Surat Keterangan" : "Belum Tersedia"}
+-                            <ArrowRight className={`w-6 h-6 ${isEligible ? 'text-[#008C9D]' : 'text-gray-200'}`} />
++                            <ArrowRight className={`w-5 h-5 md:w-6 md:h-6 ${isEligible ? 'text-[#008C9D]' : 'text-gray-200'}`} />
+                         </button>
+                     </div>
+                 </div>
+ 
+                 <div className="lg:col-span-8">
+-                    <h3 className="text-2xl font-bold text-gray-900 mb-8 flex items-center gap-3">
+-                        <ShieldCheck className="w-6 h-6 text-gray-400" />
++                    <h3 className="text-xl md:text-2xl font-bold text-gray-900 mb-6 md:mb-8 flex items-center gap-3">
++                        <ShieldCheck className="w-5 h-5 md:w-6 md:h-6 text-gray-400" />
+                         Checklist Persyaratan
+                     </h3>
+ 
+                     <div className="space-y-0">
+                         {requirements.map((req) => (
+-                            <div key={req.id} className="py-8 border-b border-gray-100 flex items-start gap-6 group hover:bg-gray-50/80 transition-all duration-300 rounded-3xl px-6 -mx-6">
++                            <div key={req.id} className="py-6 md:py-8 border-b border-gray-100 flex items-start gap-4 md:gap-6 group hover:bg-gray-50/80 transition-all duration-300 rounded-3xl px-4 md:px-6 -mx-4 md:-mx-6">
+                                 <div className={`mt-1 flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-colors duration-300 transform group-hover:scale-110 
+                                     ${req.Met ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                                     {req.Met ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
+                                 </div>
+                                 <div className="flex-1">
+-                                    <h4 className={`text-xl font-bold mb-2 transition-colors ${req.Met ? 'text-gray-900' : 'text-gray-400'}`}>
++                                    <h4 className={`text-lg md:text-xl font-bold mb-1 md:mb-2 transition-colors ${req.Met ? 'text-gray-900' : 'text-gray-400'}`}>
+                                         {req.label}
+                                     </h4>
+-                                    <p className="text-gray-500 leading-relaxed font-medium">
++                                    <p className="text-sm md:text-base text-gray-500 leading-relaxed font-medium">
+                                         {req.desc}
+                                     </p>
+                                 </div>
+@@ -234,8 +329,8 @@ export default function ClearanceClient({ currentDebt, userId, bankInfo }: { cur
+                         ))}
+                     </div>
+ 
+-                    <div className="mt-12 p-6 bg-gray-50 rounded-r-3xl border-l-4 border-gray-200">
+-                        <p className="text-gray-600 font-medium flex gap-2 items-center">
++                    <div className="mt-8 md:mt-12 p-4 md:p-6 bg-gray-50 rounded-2xl md:rounded-r-3xl border-l-4 border-gray-200">
++                        <p className="text-sm md:text-base text-gray-600 font-medium flex gap-2 items-center">
+                             Note: Hubungi admin prodi jika terdapat ketidaksesuaian data pada checklist di atas.
+                         </p>
+                     </div>
+@@ -243,4 +338,4 @@ export default function ClearanceClient({ currentDebt, userId, bankInfo }: { cur
+             </div>
+         </div>
+     );
+-}
++}
+\ No newline at end of file
+diff --git a/app/clearance/page.tsx b/app/clearance/page.tsx
+index 8294f7c..0607312 100644
+--- a/app/clearance/page.tsx
++++ b/app/clearance/page.tsx
+@@ -15,5 +15,17 @@ export default async function ClearancePage() {
+     const bankSetting = await prisma.systemSettings.findUnique({ where: { key: 'bank_account' } });
+     const bankInfo = bankSetting?.value || 'BNI 1234567890 a.n. Politeknik Negeri Jakarta';
+ 
+-    return <ClearanceClient currentDebt={user.totalHours} userId={user.id} bankInfo={bankInfo} />;
++    return <ClearanceClient
++        currentDebt={user.totalHours}
++        userId={user.id}
++        bankInfo={bankInfo}
++        isLibraryClear={user.isLibraryClear}
++        isAdminClear={user.isAdminClear}
++        userData={{
++            name: user.name || '-',
++            nim: user.nim || '-',
++            prodi: user.prodi || 'Teknik Informatika',
++            kelas: user.kelas || '-'
++        }}
++    />;
+ }
+diff --git a/app/dashboard/AdminDashboard.tsx b/app/dashboard/AdminDashboard.tsx
+index c86a41f..246a4fd 100644
+--- a/app/dashboard/AdminDashboard.tsx
++++ b/app/dashboard/AdminDashboard.tsx
+@@ -37,34 +37,34 @@ export default function AdminDashboard({ user, stats, applications, acceptedAppl
+     return (
+         <div className="pt-8 px-4 sm:px-8 max-w-[1600px] mx-auto min-h-screen pb-12 space-y-8">
+ 
+-            <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-4">
++            <header className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-6 mb-4">
+                 <div>
+-                    <h1 className="text-4xl md:text-5xl font-black text-gray-900 tracking-tight mb-2">
++                    <h1 className="text-3xl md:text-5xl font-black text-gray-900 tracking-tight mb-2">
+                         Admin Portal
+                     </h1>
+-                    <p className="text-gray-500 text-lg font-medium">
++                    <p className="text-gray-500 text-sm md:text-lg font-medium">
+                         Monitoring & Manajemen Kompensasi Pusat
+                     </p>
+                 </div>
+-                <div className="flex items-center gap-3">
+-                    <Link href="/dashboard/finance" className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-xl font-bold hover:shadow-lg transition-all active:scale-95">
++                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
++                    <Link href="/dashboard/finance" className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-xl font-bold hover:shadow-lg transition-all active:scale-95 text-sm md:text-base">
+                         <TrendingUp size={18} />
+                         <span>Finance Portal</span>
+                     </Link>
+-                    <Link href="/jobs/create" className="flex items-center gap-2 px-4 py-2.5 bg-[#008C9D] text-white rounded-xl font-bold hover:bg-[#007A8A] hover:shadow-lg shadow-[#008C9D]/20 transition-all active:scale-95">
++                    <Link href="/jobs/create" className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[#008C9D] text-white rounded-xl font-bold hover:bg-[#007A8A] hover:shadow-lg shadow-[#008C9D]/20 transition-all active:scale-95 text-sm md:text-base">
+                         <PlusCircle size={18} />
+                         <span>Buat Pekerjaan</span>
+                     </Link>
+-                    <Link href="/dashboard/settings" className="flex items-center gap-2 px-4 py-2.5 bg-white text-gray-700 border border-gray-200 rounded-xl font-bold hover:bg-gray-50 hover:shadow-lg transition-all active:scale-95">
++                    <Link href="/dashboard/settings" className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white text-gray-700 border border-gray-200 rounded-xl font-bold hover:bg-gray-50 hover:shadow-lg transition-all active:scale-95 text-sm md:text-base">
+                         <Settings size={18} />
+                         <span>Pengaturan</span>
+                     </Link>
+                 </div>
+             </header>
+ 
+-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
++            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+ 
+-                <div className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-xl shadow-gray-100/50 flex flex-col justify-between group hover:border-green-500/30 transition-all duration-300">
++                <div className="bg-white p-4 md:p-6 rounded-[2rem] md:rounded-[2.5rem] border border-gray-100 shadow-xl shadow-gray-100/50 flex flex-col justify-between group hover:border-green-500/30 transition-all duration-300">
+                     <div className="flex justify-between items-start mb-4">
+                         <div className="p-3 bg-green-100 text-green-600 rounded-2xl group-hover:scale-110 transition-transform duration-300">
+                             <TrendingUp size={24} />
+@@ -76,7 +76,7 @@ export default function AdminDashboard({ user, stats, applications, acceptedAppl
+                     </div>
+                 </div>
+ 
+-                <div className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-xl shadow-gray-100/50 flex flex-col justify-between group hover:border-[#008C9D]/30 transition-all duration-300">
++                <div className="bg-white p-4 md:p-6 rounded-[2rem] md:rounded-[2.5rem] border border-gray-100 shadow-xl shadow-gray-100/50 flex flex-col justify-between group hover:border-[#008C9D]/30 transition-all duration-300">
+                     <div className="flex justify-between items-start mb-4">
+                         <div className="p-3 bg-[#008C9D]/10 text-[#008C9D] rounded-2xl group-hover:scale-110 transition-transform duration-300">
+                             <Users size={24} />
+@@ -87,11 +87,11 @@ export default function AdminDashboard({ user, stats, applications, acceptedAppl
+                     </div>
+                     <div>
+                         <p className="text-gray-400 font-bold text-xs uppercase tracking-wider">Total Mahasiswa</p>
+-                        <h3 className="text-4xl font-black text-gray-900 mt-1">{stats?.totalStudents || 0}</h3>
++                        <h3 className="text-3xl md:text-4xl font-black text-gray-900 mt-1">{stats?.totalStudents || 0}</h3>
+                     </div>
+                 </div>
+ 
+-                <div className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-xl shadow-gray-100/50 flex flex-col justify-between group hover:border-[#CE2029]/30 transition-all duration-300">
++                <div className="bg-white p-4 md:p-6 rounded-[2rem] md:rounded-[2.5rem] border border-gray-100 shadow-xl shadow-gray-100/50 flex flex-col justify-between group hover:border-[#CE2029]/30 transition-all duration-300">
+                     <div className="flex justify-between items-start mb-4">
+                         <div className="p-3 bg-[#CE2029]/10 text-[#CE2029] rounded-2xl group-hover:scale-110 transition-transform duration-300">
+                             <Briefcase size={24} />
+@@ -99,11 +99,11 @@ export default function AdminDashboard({ user, stats, applications, acceptedAppl
+                     </div>
+                     <div>
+                         <p className="text-gray-400 font-bold text-xs uppercase tracking-wider">Pekerjaan Aktif</p>
+-                        <h3 className="text-4xl font-black text-gray-900 mt-1">{stats?.activeJobs || 0}</h3>
++                        <h3 className="text-3xl md:text-4xl font-black text-gray-900 mt-1">{stats?.activeJobs || 0}</h3>
+                     </div>
+                 </div>
+ 
+-                <div className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-xl shadow-gray-100/50 flex flex-col justify-between group hover:border-[#F4B41A]/30 transition-all duration-300">
++                <div className="bg-white p-4 md:p-6 rounded-[2rem] md:rounded-[2.5rem] border border-gray-100 shadow-xl shadow-gray-100/50 flex flex-col justify-between group hover:border-[#F4B41A]/30 transition-all duration-300">
+                     <div className="flex justify-between items-start mb-4">
+                         <div className="p-3 bg-[#F4B41A]/10 text-[#F4B41A] rounded-2xl group-hover:scale-110 transition-transform duration-300">
+                             <FileCheck size={24} />
+@@ -116,7 +116,7 @@ export default function AdminDashboard({ user, stats, applications, acceptedAppl
+                     </div>
+                     <div>
+                         <p className="text-gray-400 font-bold text-xs uppercase tracking-wider">Perlu Validasi</p>
+-                        <h3 className="text-4xl font-black text-gray-900 mt-1">{stats?.pendingValidations || 0}</h3>
++                        <h3 className="text-3xl md:text-4xl font-black text-gray-900 mt-1">{stats?.pendingValidations || 0}</h3>
+                     </div>
+                 </div>
+ 
+@@ -125,26 +125,26 @@ export default function AdminDashboard({ user, stats, applications, acceptedAppl
+ 
+             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                 <div className="lg:col-span-2 space-y-8">
+-                    <div className="bg-white rounded-[2.5rem] p-8 border border-gray-100 shadow-xl shadow-gray-100/50">
+-                        <div className="flex justify-between items-center mb-8">
++                    <div className="bg-white rounded-[2rem] md:rounded-[2.5rem] p-4 md:p-8 border border-gray-100 shadow-xl shadow-gray-100/50">
++                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 md:mb-8 gap-4">
+                             <div>
+-                                <h3 className="text-2xl font-bold text-gray-900">Permintaan Validasi</h3>
+-                                <p className="text-gray-500 text-sm">Validasi pekerjaan yang baru dilamar mahasiswa.</p>
++                                <h3 className="text-xl md:text-2xl font-bold text-gray-900">Permintaan Validasi</h3>
++                                <p className="text-gray-500 text-xs md:text-sm">Validasi pekerjaan yang baru dilamar mahasiswa.</p>
+                             </div>
+-                            <span className="bg-[#008C9D]/10 text-[#008C9D] px-4 py-1.5 rounded-full text-sm font-bold">
++                            <span className="bg-[#008C9D]/10 text-[#008C9D] px-4 py-1.5 rounded-full text-xs md:text-sm font-bold">
+                                 {applications?.length || 0} Pending
+                             </span>
+                         </div>
+                         <ApplicationList applications={applications || []} variant="PENDING" title="Semua Tervalidasi!" />
+                     </div>
+ 
+-                    <div className="bg-white rounded-[2.5rem] p-8 border border-gray-100 shadow-xl shadow-gray-100/50">
+-                        <div className="flex justify-between items-center mb-8">
++                    <div className="bg-white rounded-[2rem] md:rounded-[2.5rem] p-4 md:p-8 border border-gray-100 shadow-xl shadow-gray-100/50">
++                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 md:mb-8 gap-4">
+                             <div>
+-                                <h3 className="text-2xl font-bold text-gray-900">Pekerjaan Berjalan</h3>
+-                                <p className="text-gray-500 text-sm">Monitor dan selesaikan pekerjaan yang sedang dikerjakan.</p>
++                                <h3 className="text-xl md:text-2xl font-bold text-gray-900">Pekerjaan Berjalan</h3>
++                                <p className="text-gray-500 text-xs md:text-sm">Monitor dan selesaikan pekerjaan yang sedang dikerjakan.</p>
+                             </div>
+-                            <span className="bg-green-100 text-green-700 px-4 py-1.5 rounded-full text-sm font-bold">
++                            <span className="bg-green-100 text-green-700 px-4 py-1.5 rounded-full text-xs md:text-sm font-bold">
+                                 {acceptedApplications?.length || 0} Active
+                             </span>
+                         </div>
+@@ -154,9 +154,9 @@ export default function AdminDashboard({ user, stats, applications, acceptedAppl
+ 
+                 <div className="flex flex-col gap-8">
+ 
+-                    <div className="flex-1 bg-white rounded-[2.5rem] p-8 border border-gray-100 shadow-xl shadow-gray-100/50">
++                    <div className="flex-1 bg-white rounded-[2rem] md:rounded-[2.5rem] p-4 md:p-8 border border-gray-100 shadow-xl shadow-gray-100/50">
+                         <div className="flex justify-between items-center mb-6">
+-                            <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
++                            <h3 className="text-lg md:text-xl font-bold text-gray-900 flex items-center gap-2">
+                                 <AlertTriangle className="text-[#CE2029]" size={20} />
+                                 Top Hutang
+                             </h3>
+@@ -167,19 +167,19 @@ export default function AdminDashboard({ user, stats, applications, acceptedAppl
+                             <table className="w-full text-left">
+                                 <thead className="bg-gray-50 text-gray-400">
+                                     <tr>
+-                                        <th className="p-4 text-xs font-bold uppercase tracking-wider">Mhs</th>
+-                                        <th className="p-4 text-xs font-bold uppercase tracking-wider text-right">Jam</th>
++                                        <th className="p-3 md:p-4 text-xs font-bold uppercase tracking-wider">Mhs</th>
++                                        <th className="p-3 md:p-4 text-xs font-bold uppercase tracking-wider text-right">Jam</th>
+                                     </tr>
+                                 </thead>
+                                 <tbody className="divide-y divide-gray-100">
+                                     {topDebtors && topDebtors.length > 0 ? topDebtors.map((mhs, idx) => (
+                                         <tr key={idx} className="group hover:bg-gray-50 transition-colors cursor-pointer">
+-                                            <td className="p-4">
+-                                                <p className="font-bold text-gray-900 text-sm">{mhs.name}</p>
+-                                                <p className="text-xs text-gray-400 font-mono">{mhs.nim}</p>
++                                            <td className="p-3 md:p-4">
++                                                <p className="font-bold text-gray-900 text-xs md:text-sm">{mhs.name}</p>
++                                                <p className="text-[10px] md:text-xs text-gray-400 font-mono">{mhs.nim}</p>
+                                             </td>
+-                                            <td className="p-4 text-right">
+-                                                <span className="font-black text-[#CE2029] bg-[#CE2029]/10 px-2 py-1 rounded-lg tabular-nums">
++                                            <td className="p-3 md:p-4 text-right">
++                                                <span className="font-black text-xs md:text-sm text-[#CE2029] bg-[#CE2029]/10 px-2 py-1 rounded-lg tabular-nums">
+                                                     {mhs.totalHours}
+                                                 </span>
+                                             </td>
+@@ -194,9 +194,9 @@ export default function AdminDashboard({ user, stats, applications, acceptedAppl
+                         </div>
+                     </div>
+ 
+-                    <div className="bg-[#008C9D] rounded-[2.5rem] p-8 shadow-xl relative overflow-hidden text-white border border-[#007A8A]">
++                    <div className="bg-[#008C9D] rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-8 shadow-xl relative overflow-hidden text-white border border-[#007A8A]">
+                         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-[80px] -mr-20 -mt-20"></div>
+-                        <h3 className="text-xl font-bold mb-6 relative z-10">Menu Cepat</h3>
++                        <h3 className="text-lg md:text-xl font-bold mb-6 relative z-10">Menu Cepat</h3>
+                         <div className="space-y-3 relative z-10">
+                             <QuickLink href="/dashboard/users" icon={<Users size={18} />} label="Kelola Pengguna" />
+                             <QuickLink href="/dashboard/finance" icon={<TrendingUp size={18} />} label="Finance Dashboard" />
+diff --git a/app/dashboard/ApplicationList.tsx b/app/dashboard/ApplicationList.tsx
+index ded8643..fe01545 100644
+--- a/app/dashboard/ApplicationList.tsx
++++ b/app/dashboard/ApplicationList.tsx
+@@ -1,5 +1,5 @@
+ "use client";
+-import { Check, X, Clock, FileCheck, Play, Briefcase } from "lucide-react";
++import { Check, X, Clock, FileCheck, Play, Eye, Image, ExternalLink } from "lucide-react";
+ import { updateApplicationStatus } from "@/app/actions/applications";
+ import { useState } from "react";
+ import { useDialog } from "@/contexts/DialogContext";
+@@ -9,20 +9,40 @@ type Application = {
+     user: { name: string | null; nim: string | null; totalHours: number };
+     job: { title: string; hours: number };
+     appliedAt: Date;
++    proofImage1?: string | null;
++    proofImage2?: string | null;
++    submissionNote?: string | null;
+ };
+ 
+ interface ApplicationListProps {
+     applications: Application[];
+-    variant: 'PENDING' | 'ACCEPTED';
++    variant: 'PENDING' | 'ACCEPTED' | 'VERIFYING';
+     title?: string;
+ }
+ 
+ export default function ApplicationList({ applications, variant, title }: ApplicationListProps) {
+-    const { showAlert } = useDialog();
++    const { showAlert, showConfirm } = useDialog();
+     const [optimisticApps, setOptimisticApps] = useState(applications);
++    const [expandedId, setExpandedId] = useState<number | null>(null);
+ 
+     async function handleAction(id: number, action: 'ACCEPT' | 'REJECT' | 'COMPLETE') {
+         const originalApps = [...optimisticApps];
++
++        if (action === 'COMPLETE') {
++            const app = optimisticApps.find(a => a.id === id);
++
++            if (!app?.proofImage1) {
++                showAlert("Mahasiswa belum mengunggah bukti pengerjaan. Pekerjaan tidak dapat diselesaikan.", "Bukti Belum Ada");
++                return;
++            }
++
++            const confirmed = await showConfirm(
++                `Verifikasi selesai untuk ${app?.user.name}?\n\nJam kompen mahasiswa akan dikurangi ${app?.job.hours} jam.`,
++                "Konfirmasi Verifikasi"
++            );
++            if (!confirmed) return;
++        }
++
+         setOptimisticApps(prev => prev.filter(app => app.id !== id));
+ 
+         let status: 'ACCEPTED' | 'REJECTED' | 'COMPLETED';
+@@ -39,7 +59,7 @@ export default function ApplicationList({ applications, variant, title }: Applic
+ 
+     if (optimisticApps.length === 0) {
+         return (
+-            <div className="flex flex-col items-center justify-center py-12 text-center bg-gray-50/50 border-2 border-dashed border-gray-100 rounded-[2.5rem]">
++            <div className="flex flex-col items-center justify-center py-12 text-center bg-gray-50/50 border-2 border-dashed border-gray-100 rounded-[2rem] md:rounded-[2.5rem]">
+                 <div className="w-16 h-16 bg-white rounded-[2rem] shadow-xl shadow-gray-100 flex items-center justify-center mb-4 transform rotate-3 transition-transform hover:rotate-6 duration-300">
+                     <FileCheck size={32} className="text-[#008C9D]" />
+                 </div>
+@@ -47,7 +67,9 @@ export default function ApplicationList({ applications, variant, title }: Applic
+                 <p className="text-gray-500 text-sm max-w-xs mx-auto px-4">
+                     {variant === 'PENDING'
+                         ? "Tidak ada permintaan validasi yang perlu diproses."
+-                        : "Tidak ada pekerjaan yang sedang berjalan."}
++                        : variant === 'VERIFYING'
++                            ? "Tidak ada bukti pengerjaan yang perlu diverifikasi."
++                            : "Tidak ada pekerjaan yang sedang berjalan."}
+                 </p>
+             </div>
+         );
+@@ -55,76 +77,172 @@ export default function ApplicationList({ applications, variant, title }: Applic
+ 
+     return (
+         <div className="space-y-4">
+-            {optimisticApps.map((app) => (
+-                <div key={app.id} className="group relative flex flex-col lg:flex-row lg:items-center justify-between p-5 bg-white border border-gray-100 rounded-3xl hover:border-[#008C9D]/30 hover:shadow-xl hover:shadow-[#008C9D]/5 transition-all duration-300 gap-6">
+-                    <div className="absolute left-0 top-6 bottom-6 w-1 bg-[#008C9D] rounded-r-full lg:opacity-0 lg:group-hover:opacity-100 transition-opacity" />
+-
+-                    <div className="flex-1 pl-2 lg:pl-0">
+-                        <div className="flex items-center gap-4 mb-3">
+-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#008C9D] to-[#007A8A] flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-[#008C9D]/20">
+-                                {app.user.name ? app.user.name.charAt(0).toUpperCase() : 'M'}
+-                            </div>
+-                            <div>
+-                                <h4 className="font-bold text-gray-900 group-hover:text-[#008C9D] transition-colors line-clamp-1">
+-                                    {app.user.name || 'Mahasiswa'}
+-                                </h4>
+-                                <div className="flex items-center gap-2 mt-0.5">
+-                                    <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-lg border border-gray-200">
+-                                        {app.user.nim}
+-                                    </span>
+-                                    <span className="text-[10px] font-bold text-[#CE2029] bg-red-50 px-2 py-0.5 rounded-lg border border-red-100">
+-                                        {app.user.totalHours} Jam Utang
+-                                    </span>
++            {optimisticApps.map((app) => {
++                const isExpanded = expandedId === app.id;
++
++                return (
++                    <div key={app.id} className="group relative flex flex-col bg-white border border-gray-100 rounded-3xl hover:border-[#008C9D]/30 hover:shadow-xl hover:shadow-[#008C9D]/5 transition-all duration-300 overflow-hidden">
++                        <div className={`absolute left-0 top-0 bottom-0 w-1 ${variant === 'VERIFYING' ? 'bg-purple-500' : 'bg-[#008C9D]'
++                            } rounded-r-full`} />
++
++                        <div className="flex flex-col lg:flex-row lg:items-center justify-between p-4 md:p-5 gap-4 md:gap-6">
++                            <div className="flex-1 pl-2 lg:pl-0">
++                                <div className="flex items-center gap-4 mb-3">
++                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-lg shrink-0 ${variant === 'VERIFYING'
++                                        ? 'bg-gradient-to-br from-purple-500 to-purple-700 shadow-purple-500/20'
++                                        : 'bg-gradient-to-br from-[#008C9D] to-[#007A8A] shadow-[#008C9D]/20'
++                                        }`}>
++                                        {app.user.name ? app.user.name.charAt(0).toUpperCase() : 'M'}
++                                    </div>
++                                    <div className="min-w-0">
++                                        <h4 className="font-bold text-gray-900 group-hover:text-[#008C9D] transition-colors line-clamp-1 break-words">
++                                            {app.user.name || 'Mahasiswa'}
++                                        </h4>
++                                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
++                                            <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-lg border border-gray-200 whitespace-nowrap">
++                                                {app.user.nim}
++                                            </span>
++                                            <span className="text-[10px] font-bold text-[#CE2029] bg-red-50 px-2 py-0.5 rounded-lg border border-red-100 whitespace-nowrap">
++                                                {app.user.totalHours} Jam Utang
++                                            </span>
++                                        </div>
++                                    </div>
++                                </div>
++
++                                <div className="pl-0 md:pl-14">
++                                    <p className="text-sm text-gray-500 mb-2 line-clamp-2">
++                                        {variant === 'PENDING' ? 'Melamar untuk: ' : variant === 'VERIFYING' ? 'Mengirim bukti: ' : 'Sedang mengerjakan: '}
++                                        <span className="font-bold text-gray-900">{app.job.title}</span>
++                                        <span className="ml-2 text-[#008C9D] font-bold">({app.job.hours} Jam)</span>
++                                    </p>
++                                    <div className="flex items-center gap-3 text-xs font-medium text-gray-400 flex-wrap">
++                                        <span className="flex items-center gap-1.5 bg-gray-50 px-2 py-1 rounded-md whitespace-nowrap">
++                                            <Clock size={12} className="text-[#008C9D]" />
++                                            {new Date(app.appliedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
++                                        </span>
++                                        {app.proofImage1 && (
++                                            <button
++                                                onClick={() => setExpandedId(isExpanded ? null : app.id)}
++                                                className="flex items-center gap-1.5 bg-purple-50 text-purple-700 px-2 py-1 rounded-md hover:bg-purple-100 transition-colors whitespace-nowrap"
++                                            >
++                                                <Image size={12} />
++                                                Lihat Bukti
++                                            </button>
++                                        )}
++                                    </div>
+                                 </div>
+                             </div>
+-                        </div>
+ 
+-                        <div className="pl-14">
+-                            <p className="text-sm text-gray-500 mb-2 line-clamp-2">
+-                                {variant === 'PENDING' ? 'Melamar untuk: ' : 'Sedang mengerjakan: '}
+-                                <span className="font-bold text-gray-900">{app.job.title}</span>
+-                            </p>
+-                            <div className="flex items-center gap-3 text-xs font-medium text-gray-400">
+-                                <span className="flex items-center gap-1.5 bg-gray-50 px-2 py-1 rounded-md">
+-                                    <Clock size={12} className="text-[#008C9D]" />
+-                                    {new Date(app.appliedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+-                                </span>
++                            <div className="flex items-center gap-3 w-full lg:w-auto pl-0 lg:pl-6 lg:border-l lg:border-gray-200 mt-2 lg:mt-0">
++                                {variant === 'PENDING' && (
++                                    <>
++                                        <button
++                                            onClick={() => handleAction(app.id, 'REJECT')}
++                                            className="w-12 h-12 rounded-2xl bg-gray-50 text-gray-400 hover:bg-red-50 hover:text-red-600 hover:scale-105 active:scale-95 transition-all flex items-center justify-center border border-transparent hover:border-red-100 shrink-0"
++                                            title="Tolak"
++                                        >
++                                            <X size={20} />
++                                        </button>
++                                        <button
++                                            onClick={() => handleAction(app.id, 'ACCEPT')}
++                                            className="flex-1 lg:flex-none h-12 px-6 rounded-2xl bg-[#008C9D] text-white font-bold shadow-lg shadow-[#008C9D]/20 hover:bg-[#0d9488] hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2 whitespace-nowrap"
++                                            title="Terima"
++                                        >
++                                            <Play size={18} fill="currentColor" />
++                                            <span className="hidden sm:inline">Terima</span>
++                                        </button>
++                                    </>
++                                )}
++
++                                {variant === 'ACCEPTED' && (
++                                    <button
++                                        disabled
++                                        className="flex-1 lg:flex-none h-12 px-6 rounded-2xl bg-gray-100 text-gray-400 font-bold flex items-center justify-center gap-2 whitespace-nowrap cursor-not-allowed border border-gray-200"
++                                        title="Menunggu mahasiswa mengunggah bukti"
++                                    >
++                                        <Clock size={18} />
++                                        <span className="hidden sm:inline">Menunggu Bukti</span>
++                                    </button>
++                                )}
++
++                                {variant === 'VERIFYING' && (
++                                    <>
++                                        <button
++                                            onClick={() => handleAction(app.id, 'REJECT')}
++                                            className="w-12 h-12 rounded-2xl bg-gray-50 text-gray-400 hover:bg-red-50 hover:text-red-600 hover:scale-105 active:scale-95 transition-all flex items-center justify-center border border-transparent hover:border-red-100 shrink-0"
++                                            title="Tolak Bukti"
++                                        >
++                                            <X size={20} />
++                                        </button>
++                                        <button
++                                            onClick={() => handleAction(app.id, 'COMPLETE')}
++                                            className="flex-1 lg:flex-none h-12 px-6 rounded-2xl bg-green-600 text-white font-bold shadow-lg shadow-green-600/20 hover:bg-green-700 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2 whitespace-nowrap"
++                                            title="Verifikasi & Potong Jam"
++                                        >
++                                            <Check size={18} />
++                                            <span className="hidden sm:inline">Verifikasi</span>
++                                        </button>
++                                    </>
++                                )}
+                             </div>
+                         </div>
+-                    </div>
+ 
+-                    <div className="flex items-center gap-3 w-full lg:w-auto pl-14 lg:pl-6 lg:border-l lg:border-gray-200">
+-                        {variant === 'PENDING' ? (
+-                            <>
+-                                <button
+-                                    onClick={() => handleAction(app.id, 'REJECT')}
+-                                    className="w-12 h-12 rounded-2xl bg-gray-50 text-gray-400 hover:bg-red-50 hover:text-red-600 hover:scale-105 active:scale-95 transition-all flex items-center justify-center border border-transparent hover:border-red-100"
+-                                    title="Tolak"
+-                                >
+-                                    <X size={20} />
+-                                </button>
+-                                <button
+-                                    onClick={() => handleAction(app.id, 'ACCEPT')}
+-                                    className="flex-1 lg:flex-none h-12 px-6 rounded-2xl bg-[#008C9D] text-white font-bold shadow-lg shadow-[#008C9D]/20 hover:bg-[#0d9488] hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2"
+-                                    title="Terima"
+-                                >
+-                                    <Play size={18} fill="currentColor" />
+-                                    <span className="hidden sm:inline">Terima</span>
+-                                </button>
+-                            </>
+-                        ) : (
+-                            <button
+-                                onClick={() => handleAction(app.id, 'COMPLETE')}
+-                                className="flex-1 lg:flex-none h-12 px-6 rounded-2xl bg-green-600 text-white font-bold shadow-lg shadow-green-600/20 hover:bg-green-700 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2"
+-                                title="Selesai"
+-                            >
+-                                <Check size={18} />
+-                                <span className="hidden sm:inline">Selesai</span>
+-                            </button>
++                        {isExpanded && app.proofImage1 && (
++                            <div className="px-5 pb-5 pt-0 border-t border-gray-100 animate-in slide-in-from-top-2 duration-300">
++                                <div className="bg-gray-50 rounded-2xl p-4 space-y-4">
++                                    <h5 className="font-bold text-gray-700 flex items-center gap-2">
++                                        <Eye size={16} />
++                                        Bukti Pengerjaan yang Dikirim
++                                    </h5>
++
++                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
++                                        <a
++                                            href={app.proofImage1}
++                                            target="_blank"
++                                            rel="noopener noreferrer"
++                                            className="flex items-center gap-3 px-4 py-3 bg-white rounded-xl border border-gray-200 hover:border-[#008C9D] hover:shadow-lg transition-all group/link"
++                                        >
++                                            <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600">
++                                                <Image size={20} />
++                                            </div>
++                                            <div className="flex-1 min-w-0">
++                                                <p className="text-sm font-bold text-gray-900">Foto Sebelum</p>
++                                                <p className="text-xs text-gray-400 truncate">{app.proofImage1}</p>
++                                            </div>
++                                            <ExternalLink size={16} className="text-gray-300 group-hover/link:text-[#008C9D]" />
++                                        </a>
++
++                                        {app.proofImage2 && (
++                                            <a
++                                                href={app.proofImage2}
++                                                target="_blank"
++                                                rel="noopener noreferrer"
++                                                className="flex items-center gap-3 px-4 py-3 bg-white rounded-xl border border-gray-200 hover:border-[#008C9D] hover:shadow-lg transition-all group/link"
++                                            >
++                                                <div className="w-10 h-10 bg-green-50 rounded-lg flex items-center justify-center text-green-600">
++                                                    <Image size={20} />
++                                                </div>
++                                                <div className="flex-1 min-w-0">
++                                                    <p className="text-sm font-bold text-gray-900">Foto Sesudah</p>
++                                                    <p className="text-xs text-gray-400 truncate">{app.proofImage2}</p>
++                                                </div>
++                                                <ExternalLink size={16} className="text-gray-300 group-hover/link:text-[#008C9D]" />
++                                            </a>
++                                        )}
++                                    </div>
++
++                                    {app.submissionNote && (
++                                        <div className="bg-white rounded-xl p-3 border border-gray-200">
++                                            <p className="text-xs text-gray-400 mb-1">Catatan dari Mahasiswa:</p>
++                                            <p className="text-sm text-gray-700">{app.submissionNote}</p>
++                                        </div>
++                                    )}
++                                </div>
++                            </div>
+                         )}
+                     </div>
+-                </div>
+-            ))}
++                );
++            })}
+         </div>
+     );
+ }
+diff --git a/app/dashboard/DashboardClient.tsx b/app/dashboard/DashboardClient.tsx
+index 58f8bfc..1f0a707 100644
+--- a/app/dashboard/DashboardClient.tsx
++++ b/app/dashboard/DashboardClient.tsx
+@@ -67,10 +67,10 @@ export default function DashboardClient({ user, stats, activities }: DashboardCl
+         <div ref={container} className="pt-8 px-4 sm:px-8 max-w-[1600px] mx-auto min-h-screen pb-12 space-y-8">
+             <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-4">
+                 <div className="welcome-text">
+-                    <h1 className="text-4xl md:text-5xl font-black text-gray-900 tracking-tight mb-2">
++                    <h1 className="text-3xl md:text-5xl font-black text-gray-900 tracking-tight mb-2">
+                         Selamat Datang, <span className="text-[#008C9D]">{user.name.split(' ')[0]}</span>.
+                     </h1>
+-                    <p className="text-gray-500 text-lg font-medium">
++                    <p className="text-gray-500 text-sm md:text-lg font-medium">
+                         Semester Ganjil 2025/2026 &bull; Teknik Informatika
+                     </p>
+                 </div>
+@@ -83,14 +83,14 @@ export default function DashboardClient({ user, stats, activities }: DashboardCl
+             </header>
+ 
+             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
+-                <div className="bento-item col-span-1 md:col-span-2 lg:col-span-2 row-span-2 bg-[#008C9D] text-white rounded-[2.5rem] p-8 relative overflow-hidden group shadow-2xl shadow-gray-200 border border-[#007A8A]">
++                <div className="bento-item col-span-1 md:col-span-2 lg:col-span-2 row-span-2 bg-[#008C9D] text-white rounded-[2.5rem] p-6 md:p-8 relative overflow-hidden group shadow-2xl shadow-gray-200 border border-[#007A8A]">
+                     <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-white/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2" />
+                     <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-black/10 rounded-full blur-[80px] translate-y-1/2 -translate-x-1/2" />
+ 
+                     <div className="relative z-10 flex flex-col h-full justify-between">
+                         <div className="flex justify-between items-start">
+                             <div className="p-3 bg-white/20 backdrop-blur-md rounded-2xl border border-white/10">
+-                                <ShieldAlert className="w-8 h-8 text-white" />
++                                <ShieldAlert className="w-6 h-6 md:w-8 md:h-8 text-white" />
+                             </div>
+                             <div className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider border ${isCritical ? 'bg-red-500/20 border-red-500/30 text-white' : 'bg-green-500/20 border-green-500/30 text-white'}`}>
+                                 {isCritical ? 'Perlu Perhatian' : 'Aman'}
+@@ -98,20 +98,20 @@ export default function DashboardClient({ user, stats, activities }: DashboardCl
+                         </div>
+ 
+                         <div className="mt-8">
+-                            <p className="text-white/70 font-medium text-sm uppercase tracking-widest mb-2">Sisa Tanggungan</p>
+-                            <div className="flex items-end gap-3 mb-6">
+-                                <span className="text-8xl font-black tracking-tighter leading-none text-white">
++                            <p className="text-white/70 font-medium text-xs md:text-sm uppercase tracking-widest mb-2">Sisa Tanggungan</p>
++                            <div className="flex items-end gap-2 md:gap-3 mb-6">
++                                <span className="text-6xl md:text-8xl font-black tracking-tighter leading-none text-white">
+                                     {user.totalHours}
+                                 </span>
+-                                <span className="text-2xl font-bold text-white/50 mb-2">Jam</span>
++                                <span className="text-xl md:text-2xl font-bold text-white/50 mb-1 md:mb-2">Jam</span>
+                             </div>
+ 
+                             <div className="space-y-2">
+-                                <div className="flex justify-between text-sm font-medium text-white/70">
++                                <div className="flex justify-between text-xs md:text-sm font-medium text-white/70">
+                                     <span>Progress Pelunasan</span>
+                                     <span>{100 - debtPercentage}% Selesai</span>
+                                 </div>
+-                                <div className="w-full bg-black/20 h-4 rounded-full overflow-hidden backdrop-blur-sm">
++                                <div className="w-full bg-black/20 h-3 md:h-4 rounded-full overflow-hidden backdrop-blur-sm">
+                                     <div
+                                         className="h-full rounded-full bg-white relative transition-all duration-1000 ease-out"
+                                         style={{ width: `${100 - debtPercentage}%` }}
+@@ -119,20 +119,20 @@ export default function DashboardClient({ user, stats, activities }: DashboardCl
+                                         <div className="absolute inset-0 bg-white/50 animate-[shimmer_2s_infinite]" />
+                                     </div>
+                                 </div>
+-                                <p className="text-xs text-white/50 mt-2">Batas maksimal akumulasi: {maxDebt} Jam per semester.</p>
++                                <p className="text-[10px] md:text-xs text-white/50 mt-2">Batas maksimal akumulasi: {maxDebt} Jam per semester.</p>
+                             </div>
+                         </div>
+                     </div>
+                 </div>
+ 
+-                <div className="bento-item col-span-1 md:col-span-1 bg-white rounded-[2.5rem] p-6 border border-gray-100 shadow-xl shadow-gray-100/50 flex flex-col justify-between group hover:border-[#CE2029]/30 transition-colors duration-300">
++                <div className="bento-item col-span-1 md:col-span-1 bg-white rounded-[2rem] md:rounded-[2.5rem] p-6 border border-gray-100 shadow-xl shadow-gray-100/50 flex flex-col justify-between group hover:border-[#CE2029]/30 transition-colors duration-300">
+                     <div>
+                         <div className="flex justify-between items-start mb-4">
+                             <div className="p-3 bg-[#CE2029]/10 text-[#CE2029] rounded-2xl group-hover:scale-110 transition-transform duration-300">
+                                 <Briefcase className="w-6 h-6" />
+                             </div>
+                         </div>
+-                        <p className="text-gray-400 text-sm font-bold uppercase tracking-wider">Sedang Dikerjakan</p>
++                        <p className="text-gray-400 text-xs md:text-sm font-bold uppercase tracking-wider">Sedang Dikerjakan</p>
+                         <h3 className="text-3xl font-black text-gray-900 mt-1">{stats.activeJobs}</h3>
+                     </div>
+ 
+@@ -148,14 +148,14 @@ export default function DashboardClient({ user, stats, activities }: DashboardCl
+                     </div>
+                 </div>
+ 
+-                <div className="bento-item col-span-1 md:col-span-1 bg-white rounded-[2.5rem] p-6 border border-gray-100 shadow-xl shadow-gray-100/50 flex flex-col justify-between group hover:border-[#F4B41A]/30 transition-colors duration-300">
++                <div className="bento-item col-span-1 md:col-span-1 bg-white rounded-[2rem] md:rounded-[2.5rem] p-6 border border-gray-100 shadow-xl shadow-gray-100/50 flex flex-col justify-between group hover:border-[#F4B41A]/30 transition-colors duration-300">
+                     <div>
+                         <div className="flex justify-between items-start mb-4">
+                             <div className="p-3 bg-[#F4B41A]/10 text-[#F4B41A] rounded-2xl group-hover:scale-110 transition-transform duration-300">
+                                 <CheckCircle2 className="w-6 h-6" />
+                             </div>
+                         </div>
+-                        <p className="text-gray-400 text-sm font-bold uppercase tracking-wider">Telah Diselesaikan</p>
++                        <p className="text-gray-400 text-xs md:text-sm font-bold uppercase tracking-wider">Telah Diselesaikan</p>
+                         <h3 className="text-3xl font-black text-gray-900 mt-1">{stats.completedHours}</h3>
+                     </div>
+                     <div className="mt-4">
+@@ -166,26 +166,26 @@ export default function DashboardClient({ user, stats, activities }: DashboardCl
+                     </div>
+                 </div>
+ 
+-                <div className="bento-item col-span-1 md:col-span-2 lg:col-span-2 bg-white rounded-[2.5rem] p-8 border border-gray-100 shadow-xl shadow-gray-100/50 flex flex-col justify-between overflow-hidden relative group">
++                <div className="bento-item col-span-1 md:col-span-2 lg:col-span-2 bg-white rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-8 border border-gray-100 shadow-xl shadow-gray-100/50 flex flex-col justify-between overflow-hidden relative group">
+                     <div className="absolute top-0 right-0 w-[300px] h-[300px] bg-red-500/5 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+ 
+                     <div>
+                         <div className="flex justify-between items-center mb-6 relative z-10">
+-                            <h3 className="font-bold text-lg text-gray-900 flex items-center gap-2">
++                            <h3 className="font-bold text-base md:text-lg text-gray-900 flex items-center gap-2">
+                                 <Wallet className="w-5 h-5 text-[#CE2029]" />
+                                 Estimasi Biaya Denda
+                             </h3>
+-                            <div className="px-3 py-1 bg-[#CE2029]/10 text-[#CE2029] rounded-full text-xs font-bold">
++                            <div className="px-3 py-1 bg-[#CE2029]/10 text-[#CE2029] rounded-full text-[10px] md:text-xs font-bold">
+                                 Rp 10.000 / Jam
+                             </div>
+                         </div>
+ 
+                         <div className="flex items-end gap-3 mb-2 relative z-10">
+-                            <span className="text-5xl font-black tracking-tight text-gray-900">
++                            <span className="text-3xl md:text-5xl font-black tracking-tight text-gray-900">
+                                 {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(user.totalHours * 10000)}
+                             </span>
+                         </div>
+-                        <p className="text-gray-400 text-sm font-medium mb-8 relative z-10">
++                        <p className="text-gray-400 text-xs md:text-sm font-medium mb-8 relative z-10">
+                             Estimasi tunai jika mengkonversi seluruh sisa {user.totalHours} jam kompen.
+                         </p>
+                     </div>
+@@ -206,13 +206,13 @@ export default function DashboardClient({ user, stats, activities }: DashboardCl
+                     </div>
+                 </div>
+ 
+-                <div className="bento-item col-span-1 md:col-span-1 lg:col-span-2 bg-white rounded-[2.5rem] p-8 border border-gray-100 shadow-xl shadow-gray-100/50 overflow-hidden flex flex-col h-full">
+-                    <h3 className="font-bold text-lg text-gray-900 mb-6 flex items-center gap-2">
++                <div className="bento-item col-span-1 md:col-span-1 lg:col-span-2 bg-white rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-8 border border-gray-100 shadow-xl shadow-gray-100/50 overflow-hidden flex flex-col h-full">
++                    <h3 className="font-bold text-base md:text-lg text-gray-900 mb-6 flex items-center gap-2">
+                         <Clock className="w-5 h-5 text-[#008C9D]" />
+                         Aktivitas Terbaru
+                     </h3>
+ 
+-                    <div className="space-y-6 overflow-y-auto pr-2 custom-scrollbar flex-1">
++                    <div className="space-y-6 overflow-y-auto pl-4 pr-1 md:pr-2 custom-scrollbar flex-1">
+                         {activities.length > 0 ? activities.map((act) => (
+                             <div key={act.id} className="relative pl-6 pb-6 border-l border-gray-100 last:border-0 last:pb-0 group">
+                                 <div className={`absolute -left-[9px] top-0 w-4 h-4 rounded-full border-2 border-white transition-colors duration-300 ${act.type === 'APPROVED' ? 'bg-[#008C9D] group-hover:bg-[#007A8A] shadow-[0_0_0_4px_rgba(0,140,157,0.2)]' :
+@@ -220,11 +220,11 @@ export default function DashboardClient({ user, stats, activities }: DashboardCl
+                                         'bg-[#F4B41A] group-hover:bg-[#D49B15] shadow-[0_0_0_4px_rgba(244,180,26,0.2)]'
+                                     }`} />
+ 
+-                                <div className="mb-1 flex justify-between items-start">
+-                                    <h4 className="font-bold text-gray-900 text-sm">{act.title}</h4>
+-                                    <span className="text-[10px] font-semibold text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full">{act.time}</span>
++                                <div className="mb-1 flex justify-between items-start gap-4">
++                                    <h4 className="font-bold text-gray-900 text-sm leading-tight">{act.title}</h4>
++                                    <span className="text-[10px] font-semibold text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full shrink-0 whitespace-nowrap">{act.time}</span>
+                                 </div>
+-                                <p className="text-sm text-gray-500 leading-relaxed">{act.desc}</p>
++                                <p className="text-sm text-gray-500 leading-relaxed break-words">{act.desc}</p>
+                             </div>
+                         )) : (
+                             <div className="flex flex-col items-center justify-center h-full text-center text-gray-400">
+@@ -235,7 +235,7 @@ export default function DashboardClient({ user, stats, activities }: DashboardCl
+                     </div>
+                 </div>
+ 
+-                <div className="bento-item col-span-1 md:col-span-1 lg:col-span-2 bg-white rounded-[2.5rem] p-8 border border-gray-100 shadow-xl shadow-gray-100/50 overflow-hidden flex flex-col justify-between group hover:border-[#008C9D]/30 transition-colors h-full">
++                <div className="bento-item col-span-1 md:col-span-1 lg:col-span-2 bg-white rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-8 border border-gray-100 shadow-xl shadow-gray-100/50 overflow-hidden flex flex-col justify-between group hover:border-[#008C9D]/30 transition-colors h-full">
+                     <div className="flex justify-between items-start mb-6">
+                         <div className="p-3 bg-[#008C9D]/10 text-[#008C9D] rounded-2xl group-hover:scale-110 transition-transform duration-300">
+                             <Briefcase className="w-6 h-6" />
+diff --git a/app/dashboard/SupervisorDashboard.tsx b/app/dashboard/SupervisorDashboard.tsx
+index be4bf1a..c51cb73 100644
+--- a/app/dashboard/SupervisorDashboard.tsx
++++ b/app/dashboard/SupervisorDashboard.tsx
+@@ -17,34 +17,36 @@ interface SupervisorDashboardProps {
+     stats?: {
+         myJobs: number;
+         pendingValidations: number;
++        verifyingCount: number;
+     };
+     applications?: (JobApplication & { user: { name: string; nim: string | null; totalHours: number }; job: { title: string; hours: number } })[];
+     acceptedApplications?: (JobApplication & { user: { name: string; nim: string | null; totalHours: number }; job: { title: string; hours: number } })[];
++    verifyingApplications?: (JobApplication & { user: { name: string; nim: string | null; totalHours: number }; job: { title: string; hours: number }; proofImage1: string | null; proofImage2: string | null; submissionNote: string | null })[];
+ }
+ 
+-export default function SupervisorDashboard({ user, stats, applications, acceptedApplications }: SupervisorDashboardProps) {
++export default function SupervisorDashboard({ user, stats, applications, acceptedApplications, verifyingApplications }: SupervisorDashboardProps) {
+ 
+     return (
+         <div className="pt-8 px-4 sm:px-8 max-w-[1600px] mx-auto min-h-screen pb-12 space-y-8">
+ 
+             <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-4">
+                 <div>
+-                    <h1 className="text-4xl md:text-5xl font-black text-gray-900 tracking-tight mb-2">
++                    <h1 className="text-3xl md:text-5xl font-black text-gray-900 tracking-tight mb-2">
+                         Portal Pengawas
+                     </h1>
+-                    <p className="text-gray-500 text-lg font-medium">
++                    <p className="text-gray-500 text-sm md:text-lg font-medium">
+                         Kelola pekerjaan dan validasi mahasiswa Anda.
+                     </p>
+                 </div>
+ 
+-                <Link href="/jobs/create" className="flex items-center gap-2 px-6 py-3 bg-[#008C9D] text-white rounded-xl font-bold hover:bg-[#007A8A] hover:shadow-lg shadow-[#008C9D]/20 transition-all active:scale-95">
++                <Link href="/jobs/create" className="flex items-center justify-center gap-2 px-6 py-3 bg-[#008C9D] text-white rounded-xl font-bold hover:bg-[#007A8A] hover:shadow-lg shadow-[#008C9D]/20 transition-all active:scale-95 text-sm md:text-base w-full md:w-auto">
+                     <PlusCircle size={20} />
+                     <span>Buat Lowongan Baru</span>
+                 </Link>
+             </header>
+ 
+-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+-                <Link href="/dashboard/my-jobs" className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-xl shadow-gray-100/50 flex flex-col justify-between group hover:border-[#008C9D]/30 transition-all duration-300 h-full">
++            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
++                <Link href="/dashboard/my-jobs" className="bg-white p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] border border-gray-100 shadow-xl shadow-gray-100/50 flex flex-col justify-between group hover:border-[#008C9D]/30 transition-all duration-300 h-full">
+                     <div className="flex justify-between items-start mb-6">
+                         <div className="p-4 bg-[#008C9D]/10 text-[#008C9D] rounded-2xl group-hover:scale-110 transition-transform duration-300">
+                             <Briefcase size={28} />
+@@ -55,11 +57,11 @@ export default function SupervisorDashboard({ user, stats, applications, accepte
+                     </div>
+                     <div>
+                         <p className="text-gray-400 font-bold text-xs uppercase tracking-wider">Pekerjaan Saya</p>
+-                        <h3 className="text-5xl font-black text-gray-900 mt-2">{stats?.myJobs || 0}</h3>
++                        <h3 className="text-4xl md:text-5xl font-black text-gray-900 mt-2">{stats?.myJobs || 0}</h3>
+                     </div>
+                 </Link>
+ 
+-                <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-xl shadow-gray-100/50 flex flex-col justify-between group hover:border-[#F4B41A]/30 transition-all duration-300 h-full">
++                <div className="bg-white p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] border border-gray-100 shadow-xl shadow-gray-100/50 flex flex-col justify-between group hover:border-[#F4B41A]/30 transition-all duration-300 h-full">
+                     <div className="flex justify-between items-start mb-6">
+                         <div className="p-4 bg-[#F4B41A]/10 text-[#F4B41A] rounded-2xl group-hover:scale-110 transition-transform duration-300">
+                             <FileCheck size={28} />
+@@ -72,11 +74,28 @@ export default function SupervisorDashboard({ user, stats, applications, accepte
+                     </div>
+                     <div>
+                         <p className="text-gray-400 font-bold text-xs uppercase tracking-wider">Menunggu Validasi</p>
+-                        <h3 className="text-5xl font-black text-gray-900 mt-2">{stats?.pendingValidations || 0}</h3>
++                        <h3 className="text-4xl md:text-5xl font-black text-gray-900 mt-2">{stats?.pendingValidations || 0}</h3>
+                     </div>
+                 </div>
+ 
+-                <div className="bg-gradient-to-br from-[#008C9D] to-[#007A8A] text-white p-8 rounded-[2.5rem] shadow-xl shadow-[#008C9D]/20 flex flex-col justify-between group relative overflow-hidden h-full">
++                <div className="bg-white p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] border border-gray-100 shadow-xl shadow-gray-100/50 flex flex-col justify-between group hover:border-purple-300 transition-all duration-300 h-full">
++                    <div className="flex justify-between items-start mb-6">
++                        <div className="p-4 bg-purple-100 text-purple-600 rounded-2xl group-hover:scale-110 transition-transform duration-300">
++                            <FileCheck size={28} />
++                        </div>
++                        {stats?.verifyingCount ? (
++                            <span className="flex items-center text-xs font-bold text-white bg-purple-600 px-3 py-1 rounded-lg animate-pulse">
++                                {stats.verifyingCount} Bukti
++                            </span>
++                        ) : null}
++                    </div>
++                    <div>
++                        <p className="text-gray-400 font-bold text-xs uppercase tracking-wider">Verifikasi Bukti</p>
++                        <h3 className="text-4xl md:text-5xl font-black text-gray-900 mt-2">{stats?.verifyingCount || 0}</h3>
++                    </div>
++                </div>
++
++                <div className="bg-gradient-to-br from-[#008C9D] to-[#007A8A] text-white p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] shadow-xl shadow-[#008C9D]/20 flex flex-col justify-between group relative overflow-hidden h-full">
+                     <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full blur-3xl -mr-10 -mt-10 group-hover:scale-150 transition-transform duration-700"></div>
+                     <div className="relative z-10">
+                         <div className="flex justify-between items-start mb-6">
+@@ -94,26 +113,39 @@ export default function SupervisorDashboard({ user, stats, applications, accepte
+ 
+             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                 <div className="lg:col-span-2 space-y-8">
+-                    <div className="bg-white rounded-[2.5rem] p-8 border border-gray-100 shadow-xl shadow-gray-100/50">
+-                        <div className="flex justify-between items-center mb-8">
++                    <div className="bg-white rounded-[2rem] md:rounded-[2.5rem] p-4 md:p-8 border border-gray-100 shadow-xl shadow-gray-100/50">
++                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 md:mb-8 gap-4">
+                             <div>
+-                                <h3 className="text-2xl font-bold text-gray-900">Validasi Pelamar</h3>
+-                                <p className="text-gray-500 text-sm mt-1">Setujui pelamar agar mereka dapat mulai bekerja.</p>
++                                <h3 className="text-xl md:text-2xl font-bold text-gray-900">Validasi Pelamar</h3>
++                                <p className="text-gray-500 text-xs md:text-sm mt-1">Setujui pelamar agar mereka dapat mulai bekerja.</p>
+                             </div>
+-                            <span className="bg-[#F4B41A]/10 text-[#F4B41A] px-4 py-1.5 rounded-full text-sm font-bold">
++                            <span className="bg-[#F4B41A]/10 text-[#F4B41A] px-4 py-1.5 rounded-full text-xs md:text-sm font-bold">
+                                 {applications?.length || 0} Request
+                             </span>
+                         </div>
+                         <ApplicationList applications={applications || []} variant="PENDING" title="Semua Tervalidasi!" />
+                     </div>
+ 
+-                    <div className="bg-white rounded-[2.5rem] p-8 border border-gray-100 shadow-xl shadow-gray-100/50">
+-                        <div className="flex justify-between items-center mb-8">
++                    <div className="bg-white rounded-[2rem] md:rounded-[2.5rem] p-4 md:p-8 border border-purple-100 shadow-xl shadow-purple-100/50">
++                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 md:mb-8 gap-4">
++                            <div>
++                                <h3 className="text-xl md:text-2xl font-bold text-gray-900">≡ƒöì Verifikasi Bukti</h3>
++                                <p className="text-gray-500 text-xs md:text-sm mt-1">Cek bukti pengerjaan mahasiswa, lalu potong jam.</p>
++                            </div>
++                            <span className="bg-purple-100 text-purple-700 px-4 py-1.5 rounded-full text-xs md:text-sm font-bold">
++                                {verifyingApplications?.length || 0} Menunggu
++                            </span>
++                        </div>
++                        <ApplicationList applications={verifyingApplications || []} variant="VERIFYING" title="Semua Bukti Terverifikasi!" />
++                    </div>
++
++                    <div className="bg-white rounded-[2rem] md:rounded-[2.5rem] p-4 md:p-8 border border-gray-100 shadow-xl shadow-gray-100/50">
++                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 md:mb-8 gap-4">
+                             <div>
+-                                <h3 className="text-2xl font-bold text-gray-900">Pekerjaan Berjalan</h3>
+-                                <p className="text-gray-500 text-sm">Monitor dan selesaikan pekerjaan yang sedang dikerjakan.</p>
++                                <h3 className="text-xl md:text-2xl font-bold text-gray-900">Pekerjaan Berjalan</h3>
++                                <p className="text-gray-500 text-xs md:text-sm">Mahasiswa yang sedang mengerjakan (belum kirim bukti).</p>
+                             </div>
+-                            <span className="bg-green-100 text-green-700 px-4 py-1.5 rounded-full text-sm font-bold">
++                            <span className="bg-green-100 text-green-700 px-4 py-1.5 rounded-full text-xs md:text-sm font-bold">
+                                 {acceptedApplications?.length || 0} Active
+                             </span>
+                         </div>
+@@ -122,7 +154,7 @@ export default function SupervisorDashboard({ user, stats, applications, accepte
+                 </div>
+ 
+                 <div className="space-y-6">
+-                    <div className="bg-gray-900 rounded-[2.5rem] p-8 shadow-xl text-white relative overflow-hidden border border-gray-800">
++                    <div className="bg-gray-900 rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-8 shadow-xl text-white relative overflow-hidden border border-gray-800">
+                         <div className="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-[#008C9D]/20 to-transparent"></div>
+                         <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-3xl"></div>
+ 
+diff --git a/app/dashboard/finance/FinanceDashboardClient.tsx b/app/dashboard/finance/FinanceDashboardClient.tsx
+index 5110e5a..e82031f 100644
+--- a/app/dashboard/finance/FinanceDashboardClient.tsx
++++ b/app/dashboard/finance/FinanceDashboardClient.tsx
+@@ -2,7 +2,7 @@
+ 
+ import { useState } from "react";
+ import { useDialog } from "@/contexts/DialogContext";
+-import { Check, X, FileText, Clock, AlertCircle, TrendingUp, Users, Wallet, History, AlertTriangle } from "lucide-react";
++import { Check, X, FileText, Clock, AlertCircle, TrendingUp, Users, Wallet, History, AlertTriangle, ArrowUpRight } from "lucide-react";
+ import { verifyPayment } from "@/app/actions/payment";
+ import Image from "next/image";
+ 
+@@ -328,19 +328,51 @@ export default function FinanceDashboardClient({ payments, stats, history, debto
+             </div>
+ 
+             {selectedProof && (
+-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/90 backdrop-blur-md" onClick={() => setSelectedProof(null)}>
+-                    <div className="relative bg-white rounded-2xl overflow-hidden max-w-3xl w-full max-h-[90vh] shadow-2xl animate-in zoom-in-95 duration-200">
+-                        <button
+-                            onClick={() => setSelectedProof(null)}
+-                            className="absolute top-4 right-4 p-2 bg-black/50 rounded-full hover:bg-black text-white transition-colors"
+-                        >
+-                            <X size={24} />
+-                        </button>
+-                        <img
+-                            src={selectedProof}
+-                            alt="Bukti Pembayaran"
+-                            className="w-full h-full object-contain"
+-                        />
++                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/95 backdrop-blur-md" onClick={() => setSelectedProof(null)}>
++                    <div className="relative bg-white rounded-3xl overflow-hidden max-w-3xl w-full max-h-[90vh] shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col" onClick={e => e.stopPropagation()}>
++                        <div className="flex justify-between items-center p-4 border-b border-gray-100">
++                            <h3 className="font-bold text-gray-900">Bukti Pembayaran</h3>
++                            <button
++                                onClick={() => setSelectedProof(null)}
++                                className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 text-gray-600 transition-colors"
++                            >
++                                <X size={20} />
++                            </button>
++                        </div>
++
++                        <div className="flex-1 overflow-auto bg-gray-50 flex items-center justify-center min-h-[300px] relative p-4">
++                            <img
++                                src={selectedProof}
++                                alt="Bukti Pembayaran"
++                                className="max-w-full max-h-[60vh] object-contain rounded-lg shadow-sm"
++                                onError={(e) => {
++                                    e.currentTarget.style.display = 'none';
++                                    e.currentTarget.parentElement?.classList.add('flex-col');
++                                }}
++                            />
++                            <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center pointer-events-none z-0">
++                                <p className="text-gray-400 font-medium mb-2">Preview mungkin tidak tersedia untuk jenis link ini.</p>
++                                <p className="text-xs text-gray-300">Silahkan buka link asli di bawah.</p>
++                            </div>
++                        </div>
++
++                        <div className="p-4 bg-white border-t border-gray-100 flex justify-end gap-3">
++                            <button
++                                onClick={() => setSelectedProof(null)}
++                                className="px-4 py-2 text-gray-600 font-bold hover:bg-gray-50 rounded-xl transition-colors"
++                            >
++                                Tutup
++                            </button>
++                            <a
++                                href={selectedProof}
++                                target="_blank"
++                                rel="noopener noreferrer"
++                                className="px-6 py-2 bg-[#008C9D] text-white font-bold rounded-xl hover:bg-[#007A8A] transition-colors flex items-center gap-2 shadow-lg shadow-[#008C9D]/20 transform active:scale-95"
++                            >
++                                <span>Buka Link Asli</span>
++                                <ArrowUpRight size={16} />
++                            </a>
++                        </div>
+                     </div>
+                 </div>
+             )}
+diff --git a/app/dashboard/page.tsx b/app/dashboard/page.tsx
+index 112e75b..ffa9a60 100644
+--- a/app/dashboard/page.tsx
++++ b/app/dashboard/page.tsx
+@@ -18,6 +18,7 @@ interface AdminStats {
+ interface SupervisorStats {
+     myJobs: number;
+     pendingValidations: number;
++    verifyingCount: number;
+ }
+ 
+ interface StudentStats {
+@@ -114,18 +115,28 @@ async function getDashboardData() {
+             }
+         });
+ 
++        const verifyingCount = await prisma.jobApplication.count({
++            where: {
++                status: 'VERIFYING',
++                job: { createdById: cleanUser.id }
++            }
++        });
++
+         const pendingApps = await getApplicationsByStatus('PENDING', cleanUser.id);
+         const acceptedApps = await getApplicationsByStatus('ACCEPTED', cleanUser.id);
++        const verifyingApps = await getApplicationsByStatus('VERIFYING', cleanUser.id);
+ 
+         return {
+             role: 'PENGAWAS',
+             user: { ...cleanUser, role: 'PENGAWAS' },
+             supervisorStats: {
+                 myJobs,
+-                pendingValidations
++                pendingValidations,
++                verifyingCount
+             },
+             applications: pendingApps,
+-            acceptedApplications: acceptedApps
++            acceptedApplications: acceptedApps,
++            verifyingApplications: verifyingApps
+         };
+     }
+ 
+@@ -217,12 +228,14 @@ export default async function DashboardPage() {
+ 
+     if (dashboardData.role === 'PENGAWAS') {
+         const { supervisorStats, applications, acceptedApplications } = dashboardData;
++        const verifyingApplications = (dashboardData as any).verifyingApplications || [];
+         return (
+             <SupervisorDashboard
+                 user={dashboardData.user}
+                 stats={supervisorStats}
+                 applications={applications}
+                 acceptedApplications={acceptedApplications}
++                verifyingApplications={verifyingApplications}
+             />
+         );
+     }
+diff --git a/app/globals.css b/app/globals.css
+index 9a58795..82b846a 100644
+--- a/app/globals.css
++++ b/app/globals.css
+@@ -63,6 +63,14 @@ body {
+   font-family: var(--font-geist-sans);
+   -webkit-font-smoothing: antialiased;
+   -moz-osx-font-smoothing: grayscale;
++  overflow-x: hidden;
++  max-width: 100vw;
++}
++
++html {
++  overflow-x: hidden;
++  max-width: 100vw;
++  scroll-behavior: smooth;
+ }
+ 
+ .glass {
+@@ -70,8 +78,4 @@ body {
+   backdrop-filter: blur(12px);
+   -webkit-backdrop-filter: blur(12px);
+   border: 1px solid rgba(255, 255, 255, 0.3);
+-}
+-
+-html {
+-  scroll-behavior: smooth;
+ }
+\ No newline at end of file
+diff --git a/app/jobs/JobsList.tsx b/app/jobs/JobsList.tsx
+index d9899c6..38d9068 100644
+--- a/app/jobs/JobsList.tsx
++++ b/app/jobs/JobsList.tsx
+@@ -145,11 +145,11 @@ export default function JobsList({ jobs, appliedJobIds = [], userRole, userTotal
+     };
+ 
+     return (
+-        <div ref={container} className="pt-8 px-4 sm:px-8 max-w-[1600px] mx-auto min-h-screen pb-12 space-y-8">
++        <div ref={container} className="pt-8 px-4 sm:px-8 max-w-[1600px] mx-auto min-h-screen pb-24 md:pb-12 space-y-6 md:space-y-8">
+             <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-4">
+-                <div>
+-                    <h1 className="text-4xl md:text-5xl font-black text-gray-900 tracking-tight mb-2">Katalog Pekerjaan</h1>
+-                    <p className="text-gray-500 text-lg font-medium">Temukan tugas kompen yang sesuai dengan keahlian anda.</p>
++                <div className="w-full md:w-auto">
++                    <h1 className="text-3xl md:text-5xl font-black text-gray-900 tracking-tight mb-2">Katalog Pekerjaan</h1>
++                    <p className="text-gray-500 text-base md:text-lg font-medium">Temukan tugas kompen yang sesuai dengan keahlian anda.</p>
+                 </div>
+ 
+                 <div className="flex items-center gap-3 w-full md:w-auto">
+@@ -159,13 +159,13 @@ export default function JobsList({ jobs, appliedJobIds = [], userRole, userTotal
+                             placeholder="Cari pekerjaan..."
+                             value={searchTerm}
+                             onChange={(e) => setSearchTerm(e.target.value)}
+-                            className="w-full md:w-80 px-6 py-4 rounded-full bg-white border-2 border-gray-100 focus:border-[#008C9D] outline-none shadow-lg shadow-gray-100 transition-all font-medium text-gray-700 placeholder:text-gray-400"
++                            className="w-full md:w-80 px-4 md:px-6 py-3 md:py-4 rounded-xl md:rounded-full bg-white border-2 border-gray-100 focus:border-[#008C9D] outline-none shadow-lg shadow-gray-100 transition-all font-medium text-gray-700 placeholder:text-gray-400 text-sm md:text-base"
+                         />
+-                        <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#008C9D] transition-colors w-5 h-5" />
++                        <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#008C9D] transition-colors w-4 h-4 md:w-5 md:h-5" />
+                     </div>
+                     <button
+                         onClick={() => setShowFilters(!showFilters)}
+-                        className={`p-4 rounded-full transition-colors relative ${showFilters || activeFiltersCount > 0 ? 'bg-[#008C9D] text-white' : 'bg-white text-gray-600 border-2 border-gray-100'}`}
++                        className={`p-3 md:p-4 rounded-xl md:rounded-full transition-colors relative ${showFilters || activeFiltersCount > 0 ? 'bg-[#008C9D] text-white' : 'bg-white text-gray-600 border-2 border-gray-100'}`}
+                     >
+                         <Filter size={20} />
+                         {activeFiltersCount > 0 && (
+@@ -178,7 +178,7 @@ export default function JobsList({ jobs, appliedJobIds = [], userRole, userTotal
+             </header>
+ 
+             {showFilters && (
+-                <div className="bg-white rounded-2xl border border-gray-100 p-6 space-y-4">
++                <div className="bg-white rounded-2xl border border-gray-100 p-4 md:p-6 space-y-4 shadow-sm">
+                     <div className="flex items-center justify-between">
+                         <h3 className="font-bold text-gray-900">Filter Pekerjaan</h3>
+                         {activeFiltersCount > 0 && (
+@@ -191,13 +191,13 @@ export default function JobsList({ jobs, appliedJobIds = [], userRole, userTotal
+                             </button>
+                         )}
+                     </div>
+-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
++                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                         <div>
+                             <label className="block text-sm font-medium text-gray-500 mb-2">Urutkan</label>
+                             <select
+                                 value={sortBy}
+                                 onChange={(e) => setSortBy(e.target.value)}
+-                                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-900 focus:border-[#008C9D] outline-none"
++                                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-900 focus:border-[#008C9D] outline-none text-sm md:text-base"
+                             >
+                                 {sortOptions.map(opt => (
+                                     <option key={opt.value} value={opt.value}>{opt.label}</option>
+@@ -209,7 +209,7 @@ export default function JobsList({ jobs, appliedJobIds = [], userRole, userTotal
+                             <select
+                                 value={status}
+                                 onChange={(e) => setStatus(e.target.value)}
+-                                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-900 focus:border-[#008C9D] outline-none"
++                                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-900 focus:border-[#008C9D] outline-none text-sm md:text-base"
+                             >
+                                 {statusOptions.map(opt => (
+                                     <option key={opt.value} value={opt.value}>{opt.label}</option>
+@@ -221,7 +221,7 @@ export default function JobsList({ jobs, appliedJobIds = [], userRole, userTotal
+                             <select
+                                 value={hoursRange}
+                                 onChange={(e) => setHoursRange(e.target.value)}
+-                                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-900 focus:border-[#008C9D] outline-none"
++                                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-900 focus:border-[#008C9D] outline-none text-sm md:text-base"
+                             >
+                                 {hoursRanges.map(range => (
+                                     <option key={range.value} value={range.value}>{range.label}</option>
+@@ -233,7 +233,7 @@ export default function JobsList({ jobs, appliedJobIds = [], userRole, userTotal
+                             <select
+                                 value={selectedSupervisor}
+                                 onChange={(e) => setSelectedSupervisor(e.target.value)}
+-                                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-900 focus:border-[#008C9D] outline-none"
++                                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-900 focus:border-[#008C9D] outline-none text-sm md:text-base"
+                             >
+                                 <option value="">Semua Pengawas</option>
+                                 {uniqueSupervisors.map(name => (
+@@ -246,20 +246,20 @@ export default function JobsList({ jobs, appliedJobIds = [], userRole, userTotal
+             )}
+ 
+             <div className="flex items-center justify-between">
+-                <p className="text-gray-500">
++                <p className="text-gray-500 text-sm md:text-base">
+                     Menampilkan <span className="font-bold text-gray-900">{filteredJobs.length}</span> dari {jobs.length} pekerjaan
+                 </p>
+             </div>
+ 
+-            <div className="grid grid-cols-1 gap-6">
++            <div className="grid grid-cols-1 gap-4 md:gap-6">
+                 {filteredJobs.length === 0 ? (
+-                    <div className="text-center py-20 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200">
+-                        <p className="text-xl font-bold text-gray-400">Tidak ada pekerjaan yang sesuai filter.</p>
+-                        <p className="text-gray-400 mt-2">Coba ubah filter atau kata kunci pencarian.</p>
++                    <div className="text-center py-12 md:py-20 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200">
++                        <p className="text-lg md:text-xl font-bold text-gray-400">Tidak ada pekerjaan yang sesuai filter.</p>
++                        <p className="text-gray-400 mt-2 text-sm md:text-base">Coba ubah filter atau kata kunci pencarian.</p>
+                         {activeFiltersCount > 0 && (
+                             <button
+                                 onClick={clearFilters}
+-                                className="mt-4 px-6 py-2 bg-[#008C9D] text-white rounded-xl font-bold hover:bg-[#007A8A] transition-colors"
++                                className="mt-4 px-6 py-2 bg-[#008C9D] text-white rounded-xl font-bold hover:bg-[#007A8A] transition-colors text-sm md:text-base"
+                             >
+                                 Reset Filter
+                             </button>
+@@ -272,80 +272,94 @@ export default function JobsList({ jobs, appliedJobIds = [], userRole, userTotal
+                         return (
+                             <article
+                                 key={job.id}
+-                                className="group relative bg-white rounded-3xl p-6 border border-gray-100 shadow-sm hover:shadow-xl hover:border-[#008C9D]/30 transition-all duration-300 overflow-hidden"
++                                className="group relative bg-white rounded-2xl md:rounded-3xl p-4 md:p-6 border border-gray-100 shadow-sm hover:shadow-xl hover:border-[#008C9D]/30 transition-all duration-300 overflow-hidden"
+                             >
+-                                <div className={`absolute left-0 top-0 bottom-0 w-2 ${isOpen ? "bg-[#008C9D]" : "bg-[#CE2029]"}`} />
++                                <div className={`absolute left-0 top-0 bottom-0 w-1.5 md:w-2 ${isOpen ? "bg-[#008C9D]" : "bg-[#CE2029]"}`} />
+ 
+-                                <div className="flex flex-col md:flex-row gap-6 relative z-10">
+-                                    <div className="flex-1 space-y-3 pl-4">
+-                                        <div className="flex items-center gap-3 mb-1 flex-wrap">
+-                                            <span className={`text-xs font-bold ${isOpen ? "text-[#008C9D]" : "text-[#CE2029]"}`}>
++                                <div className="flex flex-col lg:flex-row gap-4 md:gap-6 relative z-10">
++                                    <div className="flex-1 space-y-3 pl-3 md:pl-4">
++                                        <div className="flex items-center gap-2 md:gap-3 mb-1 flex-wrap">
++                                            <span className={`text-[10px] md:text-xs font-bold ${isOpen ? "text-[#008C9D]" : "text-[#CE2029]"}`}>
+                                                 {isOpen ? "TERSEDIA" : "PENUH"}
+                                             </span>
+ 
+                                             {job.createdBy?.name && (
+-                                                <div className="flex items-center gap-1.5 px-2 py-0.5 bg-gray-100 rounded-full text-xs font-bold text-gray-500">
++                                                <div className="flex items-center gap-1.5 px-2 py-0.5 bg-gray-100 rounded-full text-[10px] md:text-xs font-bold text-gray-500">
+                                                     <UserCircle size={12} />
+                                                     {job.createdBy.name}
+                                                 </div>
+                                             )}
+                                         </div>
+ 
+-                                        <h3 className="text-2xl font-bold text-gray-900 group-hover:text-[#008C9D] transition-colors">
++                                        <h3 className="text-xl md:text-2xl font-bold text-gray-900 group-hover:text-[#008C9D] transition-colors">
+                                             {job.title}
+                                         </h3>
+ 
+-                                        <p className="text-gray-500 leading-relaxed max-w-2xl">
++                                        <p className="text-sm md:text-base text-gray-500 leading-relaxed max-w-2xl line-clamp-3 md:line-clamp-none">
+                                             {job.description}
+                                         </p>
+ 
+-                                        <div className="flex gap-6 mt-4 pt-4 border-t border-gray-50 max-w-lg">
++                                        <div className="flex flex-wrap gap-4 md:gap-6 mt-2 md:mt-4 pt-4 border-t border-gray-50 max-w-lg">
+                                             <div className="flex items-center gap-2">
+-                                                <div className="p-2 rounded-full bg-blue-50 text-blue-600">
+-                                                    <Clock size={16} />
++                                                <div className="p-1.5 md:p-2 rounded-full bg-blue-50 text-blue-600">
++                                                    <Clock size={14} className="md:w-4 md:h-4" />
+                                                 </div>
+                                                 <div>
+-                                                    <p className="text-xs text-gray-400 font-bold uppercase tracking-tighter">Kompensasi</p>
+-                                                    <p className="text-sm font-bold text-gray-900">{job.hours} Jam</p>
++                                                    <p className="text-[10px] md:text-xs text-gray-400 font-bold uppercase tracking-tighter">Kompensasi</p>
++                                                    <p className="text-xs md:text-sm font-bold text-gray-900">{job.hours} Jam</p>
+                                                 </div>
+                                             </div>
+ 
+                                             <div className="flex items-center gap-2">
+-                                                <div className="p-2 rounded-full bg-purple-50 text-purple-600">
+-                                                    <Users size={16} />
++                                                <div className="p-1.5 md:p-2 rounded-full bg-purple-50 text-purple-600">
++                                                    <Users size={14} className="md:w-4 md:h-4" />
+                                                 </div>
+                                                 <div>
+-                                                    <p className="text-xs text-gray-400 font-bold uppercase tracking-tighter">Sisa Kuota</p>
+-                                                    <p className="text-sm font-bold text-gray-900">{job.quota} Mhs</p>
++                                                    <p className="text-[10px] md:text-xs text-gray-400 font-bold uppercase tracking-tighter">Sisa Kuota</p>
++                                                    <p className="text-xs md:text-sm font-bold text-gray-900">{job.quota} Mhs</p>
+                                                 </div>
+                                             </div>
++
++                                            {userRole === 'MAHASISWA' && (
++                                                <div className="flex items-center gap-2">
++                                                    <div className="p-1.5 md:p-2 rounded-full bg-green-50 text-green-600">
++                                                        <CheckCircle size={14} className="md:w-4 md:h-4" />
++                                                    </div>
++                                                    <div>
++                                                        <p className="text-[10px] md:text-xs text-gray-400 font-bold uppercase tracking-tighter">Nilai Kompen</p>
++                                                        <p className="text-xs md:text-sm font-bold text-green-700">
++                                                            -{job.hours} Jam (Rp {(job.hours * 10000).toLocaleString('id-ID')})
++                                                        </p>
++                                                    </div>
++                                                </div>
++                                            )}
+                                         </div>
+                                     </div>
+ 
+-                                    <div className="w-full md:w-40 flex flex-col justify-center items-center gap-2 md:border-l md:border-dashed md:border-gray-200 pl-0 md:pl-8">
++                                    <div className="w-full lg:w-40 flex flex-row lg:flex-col justify-between lg:justify-center items-center gap-3 lg:border-l lg:border-dashed lg:border-gray-200 pl-0 lg:pl-8 pt-4 lg:pt-0 border-t lg:border-t-0 border-dashed border-gray-100">
+                                         {['ADMIN', 'PENGAWAS'].includes(userRole || '') ? (
+                                             <div className="flex gap-2 w-full">
+                                                 <button
+                                                     onClick={() => router.push(`/dashboard/my-jobs/${job.id}/edit`)}
+-                                                    className="flex-1 py-3 rounded-xl font-bold text-[#008C9D] bg-[#008C9D]/10 hover:bg-[#008C9D]/20 transition-colors flex items-center justify-center gap-2"
++                                                    className="flex-1 py-2 md:py-3 rounded-xl font-bold text-[#008C9D] bg-[#008C9D]/10 hover:bg-[#008C9D]/20 transition-colors flex items-center justify-center gap-2 text-sm md:text-base"
+                                                 >
+                                                     <Edit size={16} />
+                                                 </button>
+                                                 <button
+                                                     onClick={() => handleDelete(job.id)}
+-                                                    className="flex-1 py-3 rounded-xl font-bold text-[#CE2029] bg-[#CE2029]/10 hover:bg-[#CE2029]/20 transition-colors flex items-center justify-center gap-2"
++                                                    className="flex-1 py-2 md:py-3 rounded-xl font-bold text-[#CE2029] bg-[#CE2029]/10 hover:bg-[#CE2029]/20 transition-colors flex items-center justify-center gap-2 text-sm md:text-base"
+                                                 >
+                                                     <Trash2 size={16} />
+                                                 </button>
+                                             </div>
+                                         ) : appliedJobIds.includes(job.id) ? (
+-                                            <div className="w-full py-4 bg-green-50 text-green-600 rounded-xl font-bold flex flex-col items-center justify-center border border-green-200">
+-                                                <CheckCircle size={24} className="mb-1" />
++                                            <div className="w-full py-3 md:py-4 bg-green-50 text-green-600 rounded-xl font-bold flex flex-row lg:flex-col items-center justify-center gap-2 border border-green-200">
++                                                <CheckCircle size={20} className="md:w-6 md:h-6" />
+                                                 <span className="text-sm">Terkirim</span>
+                                             </div>
+                                         ) : userRole === 'MAHASISWA' && userTotalHours <= 0 ? (
+-                                            <div className="w-full py-4 bg-purple-50 text-purple-600 rounded-xl font-bold flex flex-col items-center justify-center border border-purple-200">
+-                                                <CheckCircle size={24} className="mb-1" />
++                                            <div className="w-full py-3 md:py-4 bg-purple-50 text-purple-600 rounded-xl font-bold flex flex-row lg:flex-col items-center justify-center gap-2 border border-purple-200">
++                                                <CheckCircle size={20} className="md:w-6 md:h-6" />
+                                                 <span className="text-sm">Bebas Kompen</span>
+                                             </div>
+                                         ) : (
+@@ -353,7 +367,7 @@ export default function JobsList({ jobs, appliedJobIds = [], userRole, userTotal
+                                                 <button
+                                                     onClick={() => handleApplyClick(job.id)}
+                                                     disabled={!isOpen || applyingId === job.id}
+-                                                    className="w-full py-3 md:py-4 px-6 rounded-xl font-bold transition-all duration-300 transform active:scale-95 flex items-center justify-center gap-2 bg-gray-900 text-white shadow-xl shadow-gray-200 hover:bg-[#008C9D] hover:text-white hover:shadow-[#008C9D]/30 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:shadow-none"
++                                                    className="w-full py-3 md:py-4 px-6 rounded-xl font-bold transition-all duration-300 transform active:scale-95 flex items-center justify-center gap-2 bg-gray-900 text-white shadow-xl shadow-gray-200 hover:bg-[#008C9D] hover:text-white hover:shadow-[#008C9D]/30 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:shadow-none text-sm md:text-base"
+                                                 >
+                                                     {applyingId === job.id ? (
+                                                         <>
+@@ -366,7 +380,7 @@ export default function JobsList({ jobs, appliedJobIds = [], userRole, userTotal
+                                                         </>
+                                                     ) : "Closed"}
+                                                 </button>
+-                                                <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">
++                                                <span className="hidden lg:block text-[10px] uppercase font-bold text-gray-400 tracking-wider text-center">
+                                                     {isOpen ? "Klik untuk melamar" : "Pendaftaran ditutup"}
+                                                 </span>
+                                             </>
+@@ -380,8 +394,8 @@ export default function JobsList({ jobs, appliedJobIds = [], userRole, userTotal
+             </div>
+ 
+             {confirmState.show && (
+-                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-transparent animate-[fadeIn_0.2s_ease-out]">
+-                    <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-[0_0_100px_rgba(0,0,0,0.2)] border border-gray-100 scale-100 animate-[scaleIn_0.2s_ease-out]">
++                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
++                    <div className="bg-white rounded-3xl p-6 md:p-8 max-w-sm w-full shadow-2xl border border-gray-100 scale-100 animate-[scaleIn_0.2s_ease-out]">
+                         <div className="w-16 h-16 bg-[#F4B41A]/10 rounded-full flex items-center justify-center mb-6 mx-auto">
+                             <AlertTriangle className="w-8 h-8 text-[#F4B41A]" />
+                         </div>
+@@ -407,22 +421,64 @@ export default function JobsList({ jobs, appliedJobIds = [], userRole, userTotal
+                 </div>
+             )}
+ 
+-            <div className={`fixed bottom-8 right-8 z-50 transform transition-all duration-300 ${toast.show ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0 pointer-events-none'}`}>
+-                <div className={`flex items-center gap-3 px-6 py-4 rounded-2xl shadow-xl border ${toast.type === 'success' ? 'bg-white border-green-100' : 'bg-white border-red-100'}`}>
+-                    <div className={`p-2 rounded-full ${toast.type === 'success' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
++            <div className={`fixed bottom-24 md:bottom-8 right-1/2 translate-x-1/2 md:right-8 md:translate-x-0 z-50 transform transition-all duration-300 w-[90%] md:w-auto ${toast.show ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0 pointer-events-none'}`}>
++                <div className={`flex items-center gap-3 px-4 py-3 md:px-6 md:py-4 rounded-2xl shadow-xl border ${toast.type === 'success' ? 'bg-white border-green-100' : 'bg-white border-red-100'}`}>
++                    <div className={`p-2 rounded-full shrink-0 ${toast.type === 'success' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                         {toast.type === 'success' ? <CheckCircle size={20} /> : <XCircle size={20} />}
+                     </div>
+-                    <div>
++                    <div className="min-w-0 flex-1">
+                         <h4 className={`font-bold text-sm ${toast.type === 'success' ? 'text-green-800' : 'text-red-800'}`}>
+                             {toast.type === 'success' ? 'Berhasil' : 'Gagal'}
+                         </h4>
+-                        <p className="text-xs text-gray-500 font-medium">{toast.message}</p>
++                        <p className="text-xs text-gray-500 font-medium truncate">{toast.message}</p>
+                     </div>
+-                    <button onClick={() => setToast(prev => ({ ...prev, show: false }))} className="text-gray-400 hover:text-gray-600 ml-2">
++                    <button onClick={() => setToast(prev => ({ ...prev, show: false }))} className="text-gray-400 hover:text-gray-600 ml-2 shrink-0">
+                         <X size={16} />
+                     </button>
+                 </div>
+             </div>
++
++            {userRole === 'MAHASISWA' && appliedJobIds.length > 0 && (() => {
++                const totalAppliedHours = jobs
++                    .filter(job => appliedJobIds.includes(job.id))
++                    .reduce((sum, job) => sum + job.hours, 0);
++
++                const remainingHours = Math.max(0, userTotalHours - totalAppliedHours);
++
++                if (totalAppliedHours > 0) {
++                    return (
++                        <div className="fixed bottom-6 left-4 right-4 md:left-auto md:right-auto md:bottom-8 md:w-auto z-40 animate-in slide-in-from-bottom-4 duration-500 flex justify-center md:absolute md:left-1/2 md:-translate-x-1/2 lg:left-72 lg:translate-x-8">
++                            <div className="bg-gray-900 text-white px-4 py-3 md:px-6 md:py-4 rounded-2xl md:rounded-full shadow-2xl flex items-center gap-3 md:gap-4 border border-gray-800 w-full md:w-auto justify-between md:justify-start">
++                                <div className="flex items-center gap-3 md:gap-4">
++                                    <div className={`p-2 rounded-full shrink-0 ${remainingHours === 0 ? 'bg-green-500' : 'bg-[#008C9D]'}`}>
++                                        {remainingHours === 0 ? <CheckCircle size={18} className="text-white" /> : <Clock size={18} className="text-white" />}
++                                    </div>
++                                    <div className="text-left">
++                                        <p className="text-[10px] md:text-xs text-gray-400 font-bold uppercase tracking-wider">Estimasi Sisa</p>
++                                        <p className="text-sm md:text-lg font-black text-white leading-none">
++                                            {remainingHours === 0 ? (
++                                                <span className="text-green-400">LUNAS</span>
++                                            ) : (
++                                                <>
++                                                    {remainingHours} Jam
++                                                </>
++                                            )}
++                                        </p>
++                                    </div>
++                                </div>
++                                {remainingHours > 0 && (
++                                    <div className="text-right">
++                                        <span className="text-[#008C9D] text-xs md:text-sm font-bold bg-[#008C9D]/10 px-2 py-1 rounded-lg">
++                                            Rp {(remainingHours * 10000).toLocaleString('id-ID')}
++                                        </span>
++                                    </div>
++                                )}
++                            </div>
++                        </div>
++                    );
++                }
++                return null;
++            })()}
+         </div>
+     );
+ }
+diff --git a/app/my-applications/MyApplicationsClient.tsx b/app/my-applications/MyApplicationsClient.tsx
+index d47efe0..306394c 100644
+--- a/app/my-applications/MyApplicationsClient.tsx
++++ b/app/my-applications/MyApplicationsClient.tsx
+@@ -1,140 +1,362 @@
+ "use client";
+ 
+-import { useRef } from "react";
+-import { Calendar, CheckCircle2, Clock, XCircle, ArrowRight } from "lucide-react";
++import { useState, useTransition } from "react";
++import { useDialog } from "@/contexts/DialogContext";
++import {
++    Clock, CheckCircle2, XCircle, Upload, Loader2, Send,
++    FileCheck, AlertCircle, Eye, ChevronDown, ChevronUp
++} from "lucide-react";
++import { submitJobProof } from "@/app/actions/applications";
+ 
+ export type Application = {
+     id: number;
++    jobId: number;
+     jobTitle: string;
+-    category: string;
+-    status: "Pending" | "Approved" | "Rejected" | "Done";
+-    date: string;
++    jobDescription: string;
+     hours: number;
++    status: "PENDING" | "ACCEPTED" | "VERIFYING" | "COMPLETED" | "REJECTED";
++    appliedAt: string;
++    proofImage1: string | null;
++    proofImage2: string | null;
++    submissionNote: string | null;
+ };
+ 
+-export default function MyApplicationsClient({ applications }: { applications: Application[] }) {
+-    const container = useRef(null);
++export default function MyApplicationsClient({ applications, userTotalHours = 0 }: { applications: Application[], userTotalHours?: number }) {
++    const { showAlert, showConfirm } = useDialog();
++    const [expandedId, setExpandedId] = useState<number | null>(null);
++    const [isPending, startTransition] = useTransition();
+ 
+-    const getStatusStyle = (status: Application["status"]) => {
+-        const styles = {
+-            Pending: "bg-yellow-50 text-yellow-700 border-yellow-200",
+-            Approved: "bg-[#008C9D]/10 text-[#008C9D] border-[#008C9D]/20",
+-            Rejected: "bg-red-50 text-red-700 border-red-200",
+-            Done: "bg-blue-50 text-blue-700 border-blue-200",
++    const [proofForms, setProofForms] = useState<Record<number, { proof1: string; proof2: string; note: string }>>({});
++
++    const getStatusConfig = (status: Application["status"]) => {
++        const configs = {
++            PENDING: {
++                bg: "bg-yellow-50",
++                text: "text-yellow-700",
++                border: "border-yellow-200",
++                icon: <Clock className="w-4 h-4" />,
++                label: "Menunggu Persetujuan"
++            },
++            ACCEPTED: {
++                bg: "bg-blue-50",
++                text: "text-blue-700",
++                border: "border-blue-200",
++                icon: <CheckCircle2 className="w-4 h-4" />,
++                label: "Diterima - Silakan Kerjakan"
++            },
++            VERIFYING: {
++                bg: "bg-purple-50",
++                text: "text-purple-700",
++                border: "border-purple-200",
++                icon: <FileCheck className="w-4 h-4" />,
++                label: "Menunggu Verifikasi Bukti"
++            },
++            COMPLETED: {
++                bg: "bg-green-50",
++                text: "text-green-700",
++                border: "border-green-200",
++                icon: <CheckCircle2 className="w-4 h-4" />,
++                label: "Selesai"
++            },
++            REJECTED: {
++                bg: "bg-red-50",
++                text: "text-red-700",
++                border: "border-red-200",
++                icon: <XCircle className="w-4 h-4" />,
++                label: "Ditolak"
++            },
+         };
+-        return styles[status] || "bg-gray-50 text-gray-700 border-gray-200";
++        return configs[status] || configs.PENDING;
+     };
+ 
+-    const getStatusIcon = (status: Application["status"]) => {
++    const getProgressWidth = (status: Application["status"]) => {
+         switch (status) {
+-            case "Approved":
+-            case "Done": return <CheckCircle2 className="w-4 h-4" />;
+-            case "Rejected": return <XCircle className="w-4 h-4" />;
+-            default: return <Clock className="w-4 h-4" />;
++            case "PENDING": return "w-1/4";
++            case "ACCEPTED": return "w-2/4";
++            case "VERIFYING": return "w-3/4";
++            case "COMPLETED": return "w-full";
++            case "REJECTED": return "w-0";
++            default: return "w-0";
+         }
+     };
+ 
+-    const getProgressStyles = (status: Application["status"]) => {
+-        switch (status) {
+-            case "Done": return { color: "bg-blue-500", width: "w-full" };
+-            case "Approved": return { color: "bg-[#008C9D]", width: "w-2/3" };
+-            default: return { color: "bg-yellow-400", width: "w-1/3" };
++    const handleProofChange = (appId: number, field: 'proof1' | 'proof2' | 'note', value: string) => {
++        setProofForms(prev => ({
++            ...prev,
++            [appId]: {
++                ...prev[appId],
++                [field]: value
++            }
++        }));
++    };
++
++    const handleSubmitProof = async (appId: number) => {
++        const form = proofForms[appId];
++        if (!form?.proof1 || !form?.proof2) {
++            showAlert("Mohon isi kedua link bukti foto (sebelum & sesudah).", "Error");
++            return;
+         }
++
++        const confirmed = await showConfirm(
++            "Kirim bukti pengerjaan? Pastikan link foto sudah benar. Pengawas akan memverifikasi bukti Anda.",
++            "Konfirmasi Pengiriman"
++        );
++
++        if (!confirmed) return;
++
++        startTransition(async () => {
++            const res = await submitJobProof(appId, form.proof1, form.proof2, form.note || "");
++            if (res?.error) {
++                showAlert(res.error, "Gagal");
++            } else {
++                showAlert("Bukti berhasil dikirim! Tunggu verifikasi dari pengawas.", "Berhasil");
++                setExpandedId(null);
++            }
++        });
+     };
+ 
+     return (
+-        <div ref={container} className="pt-8 px-4 max-w-7xl mx-auto space-y-8 min-h-screen pb-12">
+-            <header>
+-                <h1 className="text-4xl font-black text-gray-900 tracking-tight mb-2">
+-                    Lamaran Saya
+-                </h1>
+-                <p className="text-gray-500 text-lg">
+-                    Pantau progress dan status pengajuan kompen Anda.
+-                </p>
++        <div className="pt-8 px-4 sm:px-8 max-w-[1600px] mx-auto min-h-screen pb-24 md:pb-12 space-y-6 md:space-y-8 animate-in fade-in duration-700">
++            <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-4 relative">
++                <div className="absolute top-0 right-0 -mt-10 -mr-10 w-64 h-64 bg-[#008C9D]/5 rounded-full blur-3xl -z-10 pointer-events-none"></div>
++                <div>
++                    <h1 className="text-3xl md:text-5xl font-black text-gray-900 tracking-tight mb-2">
++                        Lamaran <span className="text-[#008C9D]">Saya</span>
++                    </h1>
++                    <p className="text-gray-500 text-base md:text-lg font-medium">
++                        Pantau progress dan kirim bukti pengerjaan kompen Anda.
++                    </p>
++                </div>
+             </header>
+ 
+-            <div className="grid grid-cols-1 gap-6">
++            <div className="grid grid-cols-1 gap-4 md:gap-6">
+                 {applications.length === 0 ? (
+-                    <div className="text-center py-20 bg-gray-50 rounded-[2rem] border-2 border-dashed border-gray-200">
+-                        <p className="text-xl font-bold text-gray-400">Belum ada lamaran.</p>
+-                        <p className="text-gray-400 mt-2">Lamaran yang Anda ajukan akan muncul di sini.</p>
++                    <div className="text-center py-12 md:py-20 bg-gray-50 rounded-[2rem] border-2 border-dashed border-gray-200">
++                        <p className="text-lg md:text-xl font-bold text-gray-400">Belum ada lamaran.</p>
++                        <p className="text-gray-400 mt-2 text-sm md:text-base">Lamaran yang Anda ajukan akan muncul di sini.</p>
+                     </div>
+                 ) : (
+                     applications.map((app) => {
+-                        const progress = getProgressStyles(app.status);
++                        const statusConfig = getStatusConfig(app.status);
++                        const isExpanded = expandedId === app.id;
++                        const form = proofForms[app.id] || { proof1: '', proof2: '', note: '' };
+ 
+                         return (
+                             <div
+                                 key={app.id}
+-                                className="group bg-white rounded-[2rem] p-6 border border-gray-100 shadow-sm hover:shadow-xl hover:border-[#008C9D]/30 transition-all duration-300 relative overflow-hidden"
++                                className="bg-white rounded-[1.5rem] md:rounded-[2rem] border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden"
+                             >
+-                                <div className={`absolute left-0 top-0 bottom-0 w-2 ${progress.color}`} />
+-
+-                                <div className="flex flex-col md:flex-row gap-6 md:gap-12 relative z-10 pl-4">
+-                                    <div className="flex-1">
+-                                        <div className="flex items-center gap-3 mb-3">
+-                                            <span className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-2 ${getStatusStyle(app.status)}`}>
+-                                                {getStatusIcon(app.status)}
+-                                                {app.status}
+-                                            </span>
+-                                            <span className="text-gray-400 text-xs font-medium uppercase tracking-wider">
+-                                                {app.category}
+-                                            </span>
+-                                        </div>
+-
+-                                        <h2 className="text-2xl font-bold text-gray-900 mb-2 group-hover:text-[#008C9D] transition-colors">
+-                                            {app.jobTitle}
+-                                        </h2>
++                                <div className="h-1.5 bg-gray-100 relative">
++                                    <div className={`absolute left-0 top-0 h-full bg-gradient-to-r from-[#008C9D] to-[#00B5CC] transition-all duration-700 ${getProgressWidth(app.status)}`} />
++                                </div>
+ 
+-                                        <div className="flex items-center gap-6 text-sm text-gray-500 font-medium">
+-                                            <div className="flex items-center gap-2">
+-                                                <Calendar className="w-4 h-4" />
+-                                                {app.date}
++                                <div className="p-4 md:p-6">
++                                    <div className="flex flex-col md:flex-row gap-4 md:gap-6 md:items-center justify-between">
++                                        <div className="flex-1 space-y-2">
++                                            <div className="flex items-center gap-3 flex-wrap">
++                                                <span className={`px-2 py-1 md:px-3 md:py-1.5 rounded-full text-[10px] md:text-xs font-bold border flex items-center gap-1.5 md:gap-2 ${statusConfig.bg} ${statusConfig.text} ${statusConfig.border}`}>
++                                                    {statusConfig.icon}
++                                                    {statusConfig.label}
++                                                </span>
+                                             </div>
+-                                            <div className="flex items-center gap-2">
+-                                                <Clock className="w-4 h-4" />
+-                                                {app.hours} Jam Kompen
++
++                                            <h2 className="text-xl md:text-2xl font-bold text-gray-900 leading-tight">
++                                                {app.jobTitle}
++                                            </h2>
++
++                                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs md:text-sm text-gray-500">
++                                                <span>Diajukan: {app.appliedAt}</span>
++                                                <span className="font-bold text-[#008C9D] flex items-center gap-1">
++                                                    {app.hours} Jam Kompen
++                                                    <span className="text-gray-400 font-normal hidden sm:inline">(Rp {(app.hours * 10000).toLocaleString('id-ID')})</span>
++                                                </span>
+                                             </div>
+                                         </div>
++
++                                        <div className="flex items-stretch md:items-center w-full md:w-auto mt-2 md:mt-0">
++                                            {app.status === "ACCEPTED" && (
++                                                <button
++                                                    onClick={() => setExpandedId(isExpanded ? null : app.id)}
++                                                    className="w-full md:w-auto px-4 md:px-6 py-3 bg-[#008C9D] text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-[#007A8A] transition-colors shadow-lg shadow-[#008C9D]/20 text-sm md:text-base"
++                                                >
++                                                    <Upload size={18} />
++                                                    Kirim Bukti
++                                                    {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
++                                                </button>
++                                            )}
++
++                                            {app.status === "VERIFYING" && (
++                                                <div className="w-full md:w-auto px-4 md:px-6 py-3 bg-purple-50 text-purple-700 rounded-xl font-bold flex items-center justify-center gap-2 border border-purple-200 text-sm md:text-base">
++                                                    <Loader2 size={18} className="animate-spin" />
++                                                    Menunggu Verifikasi
++                                                </div>
++                                            )}
++
++                                            {app.status === "COMPLETED" && (
++                                                <div className="w-full md:w-auto px-4 md:px-6 py-3 bg-green-50 text-green-700 rounded-xl font-bold flex items-center justify-center gap-2 border border-green-200 text-sm md:text-base">
++                                                    <CheckCircle2 size={18} />
++                                                    Jam Terpotong
++                                                </div>
++                                            )}
++                                        </div>
+                                     </div>
+ 
+-                                    <div className="flex-1 flex flex-col justify-center">
+-                                        <div className="relative">
+-                                            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-gray-100 rounded-full" />
+-                                            <div className={`absolute left-0 top-1/2 -translate-y-1/2 h-1 rounded-full transition-all duration-1000 ${progress.color} ${progress.width}`} />
+-
+-                                            <div className="relative flex justify-between">
+-                                                {["Diajukan", "Disetujui", "Selesai"].map((step, i) => {
+-                                                    const isActive = (i === 0) ||
+-                                                        (i === 1 && (app.status === "Approved" || app.status === "Done")) ||
+-                                                        (i === 2 && app.status === "Done");
+-
+-                                                    return (
+-                                                        <div key={step} className="flex flex-col items-center gap-2">
+-                                                            <div className={`w-4 h-4 rounded-full border-2 bg-white z-10 transition-colors duration-500 ${isActive ? (app.status === "Done" ? "border-blue-500 bg-blue-500" : "border-[#008C9D] bg-[#008C9D]") : "border-gray-200"
+-                                                                }`} />
+-                                                            <span className={`text-[10px] font-bold uppercase tracking-wider ${isActive ? "text-gray-900" : "text-gray-300"}`}>
+-                                                                {step}
+-                                                            </span>
+-                                                        </div>
+-                                                    );
+-                                                })}
++                                    {isExpanded && app.status === "ACCEPTED" && (
++                                        <div className="mt-6 pt-6 border-t border-gray-100 animate-in slide-in-from-top-4 duration-300">
++                                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
++                                                <div className="space-y-4">
++                                                    <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100">
++                                                        <h4 className="font-bold text-blue-800 mb-2 flex items-center gap-2 text-sm md:text-base">
++                                                            <AlertCircle size={18} />
++                                                            Petunjuk Pengiriman Bukti
++                                                        </h4>
++                                                        <ul className="text-xs md:text-sm text-blue-700 space-y-1.5 list-disc list-inside">
++                                                            <li>Upload foto <strong>SEBELUM</strong> mengerjakan tugas</li>
++                                                            <li>Upload foto <strong>SESUDAH</strong> menyelesaikan tugas</li>
++                                                            <li>Pastikan foto terlihat jelas dengan <strong>timestamp</strong></li>
++                                                            <li>Upload ke Google Drive/Cloud Storage, paste linknya di form</li>
++                                                            <li>Pastikan link bisa diakses publik (Anyone with the link)</li>
++                                                        </ul>
++                                                    </div>
++
++                                                    <div className="p-4 bg-gray-50 rounded-2xl">
++                                                        <h4 className="font-bold text-gray-700 mb-2 text-sm md:text-base">Detail Pekerjaan</h4>
++                                                        <p className="text-xs md:text-sm text-gray-600 leading-relaxed">{app.jobDescription}</p>
++                                                    </div>
++                                                </div>
++
++                                                <div className="space-y-4">
++                                                    <div>
++                                                        <label className="block text-sm font-bold text-gray-700 mb-2">
++                                                            ≡ƒô╕ Foto Sebelum (Link) *
++                                                        </label>
++                                                        <input
++                                                            type="url"
++                                                            placeholder="https://drive.google.com/..."
++                                                            value={form.proof1}
++                                                            onChange={(e) => handleProofChange(app.id, 'proof1', e.target.value)}
++                                                            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#008C9D] focus:ring-4 focus:ring-[#008C9D]/10 transition-all outline-none font-medium text-sm md:text-base"
++                                                        />
++                                                    </div>
++
++                                                    <div>
++                                                        <label className="block text-sm font-bold text-gray-700 mb-2">
++                                                            ≡ƒô╕ Foto Sesudah (Link) *
++                                                        </label>
++                                                        <input
++                                                            type="url"
++                                                            placeholder="https://drive.google.com/..."
++                                                            value={form.proof2}
++                                                            onChange={(e) => handleProofChange(app.id, 'proof2', e.target.value)}
++                                                            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#008C9D] focus:ring-4 focus:ring-[#008C9D]/10 transition-all outline-none font-medium text-sm md:text-base"
++                                                        />
++                                                    </div>
++
++                                                    <div>
++                                                        <label className="block text-sm font-bold text-gray-700 mb-2">
++                                                            ≡ƒô¥ Catatan (Opsional)
++                                                        </label>
++                                                        <textarea
++                                                            placeholder="Tambahkan catatan jika diperlukan..."
++                                                            value={form.note}
++                                                            onChange={(e) => handleProofChange(app.id, 'note', e.target.value)}
++                                                            rows={3}
++                                                            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#008C9D] focus:ring-4 focus:ring-[#008C9D]/10 transition-all outline-none font-medium resize-none text-sm md:text-base"
++                                                        />
++                                                    </div>
++
++                                                    <button
++                                                        onClick={() => handleSubmitProof(app.id)}
++                                                        disabled={isPending || !form.proof1 || !form.proof2}
++                                                        className="w-full py-3 md:py-4 rounded-xl bg-[#008C9D] text-white font-bold hover:bg-[#007A8A] transition-colors shadow-lg shadow-[#008C9D]/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm md:text-base"
++                                                    >
++                                                        {isPending ? (
++                                                            <>
++                                                                <Loader2 className="animate-spin" size={20} />
++                                                                Mengirim...
++                                                            </>
++                                                        ) : (
++                                                            <>
++                                                                <Send size={20} />
++                                                                Kirim Bukti Pengerjaan
++                                                            </>
++                                                        )}
++                                                    </button>
++                                                </div>
+                                             </div>
+                                         </div>
+-                                    </div>
++                                    )}
+ 
+-                                    <div className="flex flex-col justify-center md:border-l border-gray-100 md:pl-8">
+-                                        <button className="flex items-center gap-2 text-sm font-bold text-gray-900 bg-gray-50 hover:bg-gray-100 px-5 py-3 rounded-xl transition-all">
+-                                            Detail
+-                                            <ArrowRight className="w-4 h-4" />
+-                                        </button>
+-                                    </div>
++                                    {app.status === "VERIFYING" && app.proofImage1 && (
++                                        <div className="mt-6 pt-6 border-t border-gray-100">
++                                            <h4 className="font-bold text-gray-700 mb-3 flex items-center gap-2 text-sm md:text-base">
++                                                <Eye size={18} />
++                                                Bukti yang Dikirim
++                                            </h4>
++                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
++                                                <a href={app.proofImage1} target="_blank" rel="noopener noreferrer" className="px-4 py-3 bg-gray-50 rounded-xl text-xs md:text-sm text-[#008C9D] font-medium hover:bg-gray-100 transition-colors truncate block">
++                                                    ≡ƒô╕ Foto Sebelum: {app.proofImage1}
++                                                </a>
++                                                {app.proofImage2 && (
++                                                    <a href={app.proofImage2} target="_blank" rel="noopener noreferrer" className="px-4 py-3 bg-gray-50 rounded-xl text-xs md:text-sm text-[#008C9D] font-medium hover:bg-gray-100 transition-colors truncate block">
++                                                        ≡ƒô╕ Foto Sesudah: {app.proofImage2}
++                                                    </a>
++                                                )}
++                                            </div>
++                                            {app.submissionNote && (
++                                                <p className="mt-3 text-xs md:text-sm text-gray-500">
++                                                    <strong>Catatan:</strong> {app.submissionNote}
++                                                </p>
++                                            )}
++                                        </div>
++                                    )}
+                                 </div>
+                             </div>
+                         );
+                     })
+                 )}
+             </div>
++
++            {(() => {
++                const activeApps = applications.filter(a => ['PENDING', 'ACCEPTED', 'VERIFYING'].includes(a.status));
++                const totalPotentialHours = activeApps.reduce((sum, app) => sum + app.hours, 0);
++
++                const remainingHours = Math.max(0, userTotalHours - totalPotentialHours);
++
++                if (totalPotentialHours > 0) {
++                    return (
++                        <div className="fixed bottom-6 left-4 right-4 md:left-auto md:right-auto md:bottom-8 md:w-auto z-40 animate-in slide-in-from-bottom-4 duration-500 flex justify-center md:absolute md:left-1/2 md:-translate-x-1/2 lg:left-72 lg:translate-x-8">
++                            <div className="bg-gray-900 text-white px-4 py-3 md:px-6 md:py-4 rounded-2xl md:rounded-full shadow-2xl flex items-center gap-3 md:gap-4 border border-gray-800 w-full md:w-auto justify-between md:justify-start">
++                                <div className="flex items-center gap-3 md:gap-4">
++                                    <div className={`p-2 rounded-full shrink-0 ${remainingHours === 0 ? 'bg-green-500' : 'bg-[#008C9D]'}`}>
++                                        {remainingHours === 0 ? <CheckCircle2 size={18} className="text-white" /> : <Clock size={18} className="text-white" />}
++                                    </div>
++                                    <div className="text-left">
++                                        <p className="text-[10px] md:text-xs text-gray-400 font-bold uppercase tracking-wider">Estimasi Sisa</p>
++                                        <p className="text-sm md:text-lg font-black text-white leading-none">
++                                            {remainingHours === 0 ? (
++                                                <span className="text-green-400">LUNAS</span>
++                                            ) : (
++                                                <>
++                                                    {remainingHours} Jam
++                                                </>
++                                            )}
++                                        </p>
++                                    </div>
++                                </div>
++                                {remainingHours > 0 && (
++                                    <div className="text-right">
++                                        <span className="text-[#008C9D] text-xs md:text-sm font-bold bg-[#008C9D]/10 px-2 py-1 rounded-lg">
++                                            Rp {(remainingHours * 10000).toLocaleString('id-ID')}
++                                        </span>
++                                    </div>
++                                )}
++                            </div>
++                        </div>
++                    );
++                }
++                return null;
++            })()}
+         </div>
+     );
+ }
+diff --git a/app/my-applications/page.tsx b/app/my-applications/page.tsx
+index 8c843be..8e00c31 100644
+--- a/app/my-applications/page.tsx
++++ b/app/my-applications/page.tsx
+@@ -1,7 +1,7 @@
+ import { prisma } from "@/lib/prisma";
+ import { getSessionUser } from "@/app/actions/auth";
+ import { redirect } from "next/navigation";
+-import { Clock, CheckCircle, XCircle } from "lucide-react";
++import MyApplicationsClient from "./MyApplicationsClient";
+ 
+ export const dynamic = "force-dynamic";
+ 
+@@ -15,56 +15,18 @@ export default async function MyApplicationsPage() {
+         orderBy: { appliedAt: "desc" },
+     });
+ 
+-    const getStatusStyles = (status: string) => {
+-        switch (status) {
+-            case "APPROVED": return "bg-[#008C9D]/10 text-[#008C9D]";
+-            case "REJECTED": return "bg-[#CE2029]/10 text-[#CE2029]";
+-            case "DONE": return "bg-[#008C9D]/10 text-[#008C9D]";
+-            default: return "bg-[#F4B41A]/10 text-[#F4B41A]";
+-        }
+-    };
++    const formattedApps = applications.map(app => ({
++        id: app.id,
++        jobId: app.jobId,
++        jobTitle: app.job.title,
++        jobDescription: app.job.description,
++        hours: app.job.hours,
++        status: app.status as "PENDING" | "ACCEPTED" | "VERIFYING" | "COMPLETED" | "REJECTED",
++        appliedAt: app.appliedAt.toLocaleDateString('id-ID'),
++        proofImage1: app.proofImage1,
++        proofImage2: app.proofImage2,
++        submissionNote: app.submissionNote,
++    }));
+ 
+-    return (
+-        <div className="pt-8 px-4 sm:px-8 max-w-[1600px] mx-auto min-h-screen pb-12 space-y-8">
+-            <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-4">
+-                <div>
+-                    <h1 className="text-4xl md:text-5xl font-black text-gray-900 tracking-tight mb-2">Lamaran Saya</h1>
+-                    <p className="text-gray-500 text-lg font-medium">Pantau status lamaran pekerjaan Anda disana.</p>
+-                </div>
+-            </header>
+-
+-            <div className="space-y-4">
+-                {applications.length === 0 ? (
+-                    <div className="text-center p-12 bg-white rounded-3xl border border-gray-100 text-gray-500">
+-                        Belum ada lamaran. Yuk cari pekerjaan di menu Pekerjaan!
+-                    </div>
+-                ) : (
+-                    applications.map((app) => (
+-                        <div
+-                            key={app.id}
+-                            className="bg-white p-6 rounded-2xl border border-gray-100 hover:shadow-lg transition-all flex justify-between items-center group"
+-                        >
+-                            <div>
+-                                <h3 className="font-bold text-gray-900 text-lg group-hover:text-[#008C9D] transition-colors">
+-                                    {app.job.title}
+-                                </h3>
+-                                <p className="text-sm text-gray-400 mt-1">
+-                                    Diajukan pada: {app.appliedAt.toLocaleDateString()}
+-                                </p>
+-                            </div>
+-
+-                            <div className="flex items-center gap-3">
+-                                <span className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold ${getStatusStyles(app.status)}`}>
+-                                    {(app.status === "APPROVED" || app.status === "DONE") && <CheckCircle size={14} />}
+-                                    {app.status === "REJECTED" && <XCircle size={14} />}
+-                                    {app.status === "PENDING" && <Clock size={14} />}
+-                                    {app.status}
+-                                </span>
+-                            </div>
+-                        </div>
+-                    ))
+-                )}
+-            </div>
+-        </div>
+-    );
++    return <MyApplicationsClient applications={formattedApps} userTotalHours={user.totalHours} />;
+ }
+diff --git a/app/profile/ProfileClient.tsx b/app/profile/ProfileClient.tsx
+index a850e72..f53515e 100644
+--- a/app/profile/ProfileClient.tsx
++++ b/app/profile/ProfileClient.tsx
+@@ -74,12 +74,12 @@ export default function ProfileClient({ user }: { user: User }) {
+         <div className="pt-8 px-4 sm:px-8 max-w-[1600px] mx-auto min-h-screen pb-12 space-y-8">
+             <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-4">
+                 <div>
+-                    <h1 className="text-4xl md:text-5xl font-black text-gray-900 tracking-tight mb-2">Profil Saya</h1>
+-                    <p className="text-gray-500 text-lg font-medium">Kelola informasi akun dan keamanan Anda.</p>
++                    <h1 className="text-3xl md:text-5xl font-black text-gray-900 tracking-tight mb-2">Profil Saya</h1>
++                    <p className="text-gray-500 text-sm md:text-lg font-medium">Kelola informasi akun dan keamanan Anda.</p>
+                 </div>
+             </header>
+ 
+-            <div className="bg-white rounded-[2.5rem] p-8 border border-gray-100 shadow-sm">
++            <div className="bg-white rounded-[1.5rem] md:rounded-[2.5rem] p-4 md:p-8 border border-gray-100 shadow-sm">
+                 <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                     <Lock className="text-[#008C9D]" size={24} />
+                     Ubah Password
+@@ -108,7 +108,7 @@ export default function ProfileClient({ user }: { user: User }) {
+                                 onChange={(e) => setCurrentPassword(e.target.value)}
+                                 required
+                                 placeholder="Masukkan password saat ini"
+-                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-[#008C9D] focus:ring-4 focus:ring-[#008C9D]/10 outline-none transition-all placeholder:text-gray-400"
++                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-[#008C9D] focus:ring-4 focus:ring-[#008C9D]/10 outline-none transition-all placeholder:text-gray-400 text-sm md:text-base"
+                             />
+                         </div>
+ 
+@@ -121,7 +121,7 @@ export default function ProfileClient({ user }: { user: User }) {
+                                 required
+                                 minLength={6}
+                                 placeholder="Minimal 6 karakter"
+-                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-[#008C9D] focus:ring-4 focus:ring-[#008C9D]/10 outline-none transition-all placeholder:text-gray-400"
++                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-[#008C9D] focus:ring-4 focus:ring-[#008C9D]/10 outline-none transition-all placeholder:text-gray-400 text-sm md:text-base"
+                             />
+                         </div>
+ 
+@@ -134,7 +134,7 @@ export default function ProfileClient({ user }: { user: User }) {
+                                 required
+                                 minLength={6}
+                                 placeholder="Ulangi password baru"
+-                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-[#008C9D] focus:ring-4 focus:ring-[#008C9D]/10 outline-none transition-all placeholder:text-gray-400"
++                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-[#008C9D] focus:ring-4 focus:ring-[#008C9D]/10 outline-none transition-all placeholder:text-gray-400 text-sm md:text-base"
+                             />
+                         </div>
+                     </div>
+@@ -143,7 +143,7 @@ export default function ProfileClient({ user }: { user: User }) {
+                         <button
+                             type="submit"
+                             disabled={loading}
+-                            className="px-8 py-3 bg-[#008C9D] text-white rounded-xl font-bold hover:shadow-lg hover:shadow-[#008C9D]/30 hover:bg-[#007A8A] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
++                            className="w-full md:w-auto px-8 py-3 bg-[#008C9D] text-white rounded-xl font-bold hover:shadow-lg hover:shadow-[#008C9D]/30 hover:bg-[#007A8A] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm md:text-base"
+                         >
+                             {loading ? (
+                                 <>
+diff --git a/components/MainLayout.tsx b/components/MainLayout.tsx
+index 23b6c01..74c0ad6 100644
+--- a/components/MainLayout.tsx
++++ b/components/MainLayout.tsx
+@@ -7,7 +7,7 @@ export default function MainLayout({ children }: { children: React.ReactNode })
+     const isPublicPage = ["/", "/login"].includes(pathname);
+ 
+     return (
+-        <div className={`min-h-screen transition-all duration-300 ${!isPublicPage ? 'lg:pl-72 pt-20 lg:pt-0' : ''}`}>
++        <div className={`min-h-screen transition-all duration-300 ${!isPublicPage ? 'lg:pl-72 pt-[4.5rem] lg:pt-0' : ''}`}>
+             <main>{children}</main>
+         </div>
+     );
+diff --git a/package.json b/package.json
+index 7cd0672..186e84c 100644
+--- a/package.json
++++ b/package.json
+@@ -18,13 +18,14 @@
+     "bcryptjs": "^3.0.3",
+     "gsap": "^3.14.2",
+     "jose": "^6.1.3",
++    "jspdf": "^3.0.4",
+     "lucide-react": "^0.562.0",
+     "next": "15.1.0",
+     "nodemailer": "^7.0.12",
+     "react": "19.0.0",
+     "react-dom": "19.0.0",
+     "recharts": "^3.6.0",
+-    "zod": "^4.3.2"
++    "zod": "^3.24.1"
+   },
+   "devDependencies": {
+     "@prisma/client": "^5.17.0",
+diff --git a/pnpm-lock.yaml b/pnpm-lock.yaml
+index 61ae930..3f3409a 100644
+--- a/pnpm-lock.yaml
++++ b/pnpm-lock.yaml
+@@ -26,6 +26,9 @@ importers:
+       jose:
+         specifier: ^6.1.3
+         version: 6.1.3
++      jspdf:
++        specifier: ^3.0.4
++        version: 3.0.4
+       lucide-react:
+         specifier: ^0.562.0
+         version: 0.562.0(react@19.0.0)
+@@ -220,6 +223,10 @@ packages:
+     resolution: {integrity: sha512-C0NBLsIqzDIae8HFw9YIrIBsbc0xTiOtt7fAukGPnqQ/+zZNaq+4jhuccltK0QuWHBnNm/a6kLIRA6GFiM10eg==}
+     engines: {node: '>=18.0.0'}
+ 
++  '@babel/runtime@7.28.4':
++    resolution: {integrity: sha512-Q/N6JNWvIvPnLDvjlE1OUBLPQHH6l3CltCEsHIujp45zQUSSh8K+gHnaEX45yAT1nyngnINhvWtzN+Nb9D8RAQ==}
++    engines: {node: '>=6.9.0'}
++
+   '@emnapi/core@1.7.1':
+     resolution: {integrity: sha512-o1uhUASyo921r2XtHYOHy7gdkGLge8ghBEQHMWmyJFoXlpU58kIrhhN3w26lpQb6dspetweapMn2CSNwQ8I4wg==}
+ 
+@@ -1021,6 +1028,12 @@ packages:
+   '@types/nodemailer@7.0.4':
+     resolution: {integrity: sha512-ee8fxWqOchH+Hv6MDDNNy028kwvVnLplrStm4Zf/3uHWw5zzo8FoYYeffpJtGs2wWysEumMH0ZIdMGMY1eMAow==}
+ 
++  '@types/pako@2.0.4':
++    resolution: {integrity: sha512-VWDCbrLeVXJM9fihYodcLiIv0ku+AlOa/TQ1SvYOaBuyrSKgEcro95LJyIsJ4vSo6BXIxOKxiJAat04CmST9Fw==}
++
++  '@types/raf@3.4.3':
++    resolution: {integrity: sha512-c4YAvMedbPZ5tEyxzQdMoOhhJ4RD3rngZIdwC2/qDN3d7JpEhB6fiBRKVY1lg5B7Wk+uPBjn5f39j1/2MY1oOw==}
++
+   '@types/react-dom@19.2.3':
+     resolution: {integrity: sha512-jp2L/eY6fn+KgVVQAOqYItbF0VY/YApe5Mz2F0aykSO8gx31bYCZyvSeYxCHKvzHG5eZjc+zyaS5BrBWya2+kQ==}
+     peerDependencies:
+@@ -1029,6 +1042,9 @@ packages:
+   '@types/react@19.2.7':
+     resolution: {integrity: sha512-MWtvHrGZLFttgeEj28VXHxpmwYbor/ATPYbBfSFZEIRK0ecCFLl2Qo55z52Hss+UV9CRN7trSeq1zbgx7YDWWg==}
+ 
++  '@types/trusted-types@2.0.7':
++    resolution: {integrity: sha512-ScaPdn1dQczgbl0QFTeTOmVHFULt394XJgOQNoyVhZ6r2vLnMLJfBPd53SB52T/3G36VI1/g2MZaX0cwDuXsfw==}
++
+   '@types/use-sync-external-store@0.0.6':
+     resolution: {integrity: sha512-zFDAD+tlpf2r4asuHEj0XH6pY6i0g5NeAHPn+15wk3BV6JA69eERFXC1gyGThDkVa1zCyKr5jox1+2LbV/AMLg==}
+ 
+@@ -1272,6 +1288,10 @@ packages:
+   balanced-match@1.0.2:
+     resolution: {integrity: sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw==}
+ 
++  base64-arraybuffer@1.0.2:
++    resolution: {integrity: sha512-I3yl4r9QB5ZRY3XuJVEPfc2XhZO6YweFPI+UovAzn+8/hb3oJ6lnysaFcjVpkCPfVWFUDvoZ8kmVDP7WyRtYtQ==}
++    engines: {node: '>= 0.6.0'}
++
+   bcryptjs@3.0.3:
+     resolution: {integrity: sha512-GlF5wPWnSa/X5LKM1o0wz0suXIINz1iHRLvTS+sLyi7XPbe5ycmYI3DlZqVGZZtDgl4DmasFg7gOB3JYbphV5g==}
+     hasBin: true
+@@ -1312,6 +1332,10 @@ packages:
+   caniuse-lite@1.0.30001761:
+     resolution: {integrity: sha512-JF9ptu1vP2coz98+5051jZ4PwQgd2ni8A+gYSN7EA7dPKIMf0pDlSUxhdmVOaV3/fYK5uWBkgSXJaRLr4+3A6g==}
+ 
++  canvg@3.0.11:
++    resolution: {integrity: sha512-5ON+q7jCTgMp9cjpu4Jo6XbvfYwSB2Ow3kzHKfIyJfaCAOHLbdKPQqGKgfED/R5B+3TFFfe8pegYA+b423SRyA==}
++    engines: {node: '>=10.0.0'}
++
+   chalk@4.1.2:
+     resolution: {integrity: sha512-oKnbhFyRIXpUuez8iBMmyEa4nbj4IOQyuhc/wy9kY7/WVPcwIO9VA668Pu8RkO7+0G76SLROeyw9CpQ061i4mA==}
+     engines: {node: '>=10'}
+@@ -1340,10 +1364,16 @@ packages:
+   concat-map@0.0.1:
+     resolution: {integrity: sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg==}
+ 
++  core-js@3.47.0:
++    resolution: {integrity: sha512-c3Q2VVkGAUyupsjRnaNX6u8Dq2vAdzm9iuPj5FW0fRxzlxgq9Q39MDq10IvmQSpLgHQNyQzQmOo6bgGHmH3NNg==}
++
+   cross-spawn@7.0.6:
+     resolution: {integrity: sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==}
+     engines: {node: '>= 8'}
+ 
++  css-line-break@2.1.0:
++    resolution: {integrity: sha512-FHcKFCZcAha3LwfVBhCQbW2nCNbkZXn7KVUJcsT5/P8YmfsVja0FMPJr0B903j/E69HUphKiV9iQArX8SDYA4w==}
++
+   csstype@3.2.3:
+     resolution: {integrity: sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==}
+ 
+@@ -1445,6 +1475,9 @@ packages:
+     resolution: {integrity: sha512-35mSku4ZXK0vfCuHEDAwt55dg2jNajHZ1odvF+8SSr82EsZY4QmXfuWso8oEd8zRhVObSN18aM0CjSdoBX7zIw==}
+     engines: {node: '>=0.10.0'}
+ 
++  dompurify@3.3.1:
++    resolution: {integrity: sha512-qkdCKzLNtrgPFP1Vo+98FRzJnBRGe4ffyCea9IwHB1fyxPOeNTHpLKYGd4Uk9xvNoH0ZoOjwZxNptyMwqrId1Q==}
++
+   dotenv@17.2.3:
+     resolution: {integrity: sha512-JVUnt+DUIzu87TABbhPmNfVdBDt18BLOWjMUFJMSi/Qqg7NTYtabbvSNJGOJ7afbRuv9D/lngizHtP7QyLQ+9w==}
+     engines: {node: '>=12'}
+@@ -1636,6 +1669,9 @@ packages:
+   fast-levenshtein@2.0.6:
+     resolution: {integrity: sha512-DCXu6Ifhqcks7TZKY3Hxp3y6qphY5SJZmrWMDrKcERSOXWQdMhU9Ig/PYrzyw/ul9jOIyh0N4M0tbC5hodg8dw==}
+ 
++  fast-png@6.4.0:
++    resolution: {integrity: sha512-kAqZq1TlgBjZcLr5mcN6NP5Rv4V2f22z00c3g8vRrwkcqjerx7BEhPbOnWCPqaHUl2XWQBJQvOT/FQhdMT7X/Q==}
++
+   fast-xml-parser@5.2.5:
+     resolution: {integrity: sha512-pfX9uG9Ki0yekDHx2SiuRIyFdyAr1kMIMitPvb0YBo8SUfKvia7w7FIyd/l6av85pFYRhZscS75MwMnbvY+hcQ==}
+     hasBin: true
+@@ -1652,6 +1688,9 @@ packages:
+       picomatch:
+         optional: true
+ 
++  fflate@0.8.2:
++    resolution: {integrity: sha512-cPJU47OaAoCbg0pBvzsgpTPhmhqI5eJjh/JIu8tPj5q+T7iLvW/JAYUqmE7KOB4R1ZyEhzBaIQpQpardBF5z8A==}
++
+   file-entry-cache@8.0.0:
+     resolution: {integrity: sha512-XXTUwCvisa5oacNGRP9SfNtYBNAMi+RPwBFmblZEF7N7swHYQS6/Zfk7SRwx4D5j3CH211YNRco1DEMNVfZCnQ==}
+     engines: {node: '>=16.0.0'}
+@@ -1762,6 +1801,10 @@ packages:
+     resolution: {integrity: sha512-0hJU9SCPvmMzIBdZFqNPXWa6dqh7WdH0cII9y+CyS8rG3nL48Bclra9HmKhVVUHyPWNH5Y7xDwAB7bfgSjkUMQ==}
+     engines: {node: '>= 0.4'}
+ 
++  html2canvas@1.4.1:
++    resolution: {integrity: sha512-fPU6BHNpsyIhr8yyMpTLLxAbkaK8ArIBcmZIRiBLiDhjeqvXolaEmDGmELFuX9I4xDcaKKcJl+TKZLqruBbmWA==}
++    engines: {node: '>=8.0.0'}
++
+   ignore@5.3.2:
+     resolution: {integrity: sha512-hsBTNUqQTDwkWtcdYI2i06Y/nUBEsNEDJKjWdigLvegy8kDuJAS8uRlpkkcQpyEXL0Z/pjDy5HBmMjRCJ2gq+g==}
+     engines: {node: '>= 4'}
+@@ -1792,6 +1835,9 @@ packages:
+     resolution: {integrity: sha512-5Hh7Y1wQbvY5ooGgPbDaL5iYLAPzMTUrjMulskHLH6wnv/A+1q5rgEaiuqEjB+oxGXIVZs1FF+R/KPN3ZSQYYg==}
+     engines: {node: '>=12'}
+ 
++  iobuffer@5.4.0:
++    resolution: {integrity: sha512-DRebOWuqDvxunfkNJAlc3IzWIPD5xVxwUNbHr7xKB8E6aLJxIPfNX3CoMJghcFjpv6RWQsrcJbghtEwSPoJqMA==}
++
+   is-array-buffer@3.0.5:
+     resolution: {integrity: sha512-DDfANUiiG2wC1qawP66qlTugJeL5HyzMpfr8lLK+jMQirGzNod0B12cFB/9q838Ru27sBwfw78/rdoU7RERz6A==}
+     engines: {node: '>= 0.4'}
+@@ -1935,6 +1981,9 @@ packages:
+     resolution: {integrity: sha512-g1MWMLBiz8FKi1e4w0UyVL3w+iJceWAFBAaBnnGKOpNa5f8TLktkbre1+s6oICydWAm+HRUGTmI+//xv2hvXYA==}
+     hasBin: true
+ 
++  jspdf@3.0.4:
++    resolution: {integrity: sha512-dc6oQ8y37rRcHn316s4ngz/nOjayLF/FFxBF4V9zamQKRqXxyiH1zagkCdktdWhtoQId5K20xt1lB90XzkB+hQ==}
++
+   jsx-ast-utils@3.3.5:
+     resolution: {integrity: sha512-ZZow9HBI5O6EPgSJLUb8n2NKgmVWTwCvHGwFuJlMjvLFqlGG6pjirPhtdsseaLZjSibD8eegzmYpUZwoIlj2cQ==}
+     engines: {node: '>=4.0'}
+@@ -2158,6 +2207,9 @@ packages:
+     resolution: {integrity: sha512-LaNjtRWUBY++zB5nE/NwcaoMylSPk+S+ZHNB1TzdbMJMny6dynpAGt7X/tl/QYq3TIeE6nxHppbo2LGymrG5Pw==}
+     engines: {node: '>=10'}
+ 
++  pako@2.1.0:
++    resolution: {integrity: sha512-w+eufiZ1WuJYgPXbV/PO3NCMEc3xqylkKHzp8bxp1uW4qaSNQUkwmLLEc3kKsfz8lpV1F8Ht3U1Cm+9Srog2ug==}
++
+   parent-module@1.0.1:
+     resolution: {integrity: sha512-GQ2EWRpQV8/o+Aw8YqtfZZPfNRWZYkbidE9k5rpl/hC3vtHHBfGm2Ifi6qWV+coDGkrUKZAxE3Lot5kcsRlh+g==}
+     engines: {node: '>=6'}
+@@ -2173,6 +2225,9 @@ packages:
+   path-parse@1.0.7:
+     resolution: {integrity: sha512-LDJzPVEEEPR+y48z93A0Ed0yXb8pAByGWo/k5YYdYgpY2/2EsOsksJrq7lOHxryrVOn1ejG6oAp8ahvOIQD8sw==}
+ 
++  performance-now@2.1.0:
++    resolution: {integrity: sha512-7EAHlyLHI56VEIdK57uwHdHKIaAGbnXPiw0yWbarQZOKaKpvUIgW0jWRVLiatnM+XXlSwsanIBH/hzGMJulMow==}
++
+   picocolors@1.1.1:
+     resolution: {integrity: sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA==}
+ 
+@@ -2215,6 +2270,9 @@ packages:
+   queue-microtask@1.2.3:
+     resolution: {integrity: sha512-NuaNSa6flKT5JaSYQzJok04JzTL1CA6aGhv5rfLW3PgqA+M2ChpZQnAC8h8i4ZFkBS8X5RqkDBHA7r4hej3K9A==}
+ 
++  raf@3.4.1:
++    resolution: {integrity: sha512-Sq4CW4QhwOHE8ucn6J34MqtZCeWFP2aQSmrlroYgqAV1PjStIhJXxYuTgUIfkEk7zTLjmIjLmU5q+fbD1NnOJA==}
++
+   react-dom@19.0.0:
+     resolution: {integrity: sha512-4GV5sHFG0e/0AD4X+ySy6UJd3jVl1iNsNHdpad0qhABJ11twS3TTBnseqsKurKcsNqCEFeGL3uLpVChpIO3QfQ==}
+     peerDependencies:
+@@ -2259,6 +2317,9 @@ packages:
+     resolution: {integrity: sha512-00o4I+DVrefhv+nX0ulyi3biSHCPDe+yLv5o/p6d/UVlirijB8E16FtfwSAi4g3tcqrQ4lRAqQSoFEZJehYEcw==}
+     engines: {node: '>= 0.4'}
+ 
++  regenerator-runtime@0.13.11:
++    resolution: {integrity: sha512-kY1AZVr2Ra+t+piVaJ4gxaFaReZVH40AKNo7UCX6W+dEwBo/2oZJzqfuN1qLq1oL45o56cPaTXELwrTh8Fpggg==}
++
+   regexp.prototype.flags@1.5.4:
+     resolution: {integrity: sha512-dYqgNSZbDwkaJ2ceRd9ojCGjBq+mOm9LmtXnAnEGyHhN/5R7iDW2TRw3h+o/jCFxus3P2LfWIIiwowAjANm7IA==}
+     engines: {node: '>= 0.4'}
+@@ -2286,6 +2347,10 @@ packages:
+     resolution: {integrity: sha512-g6QUff04oZpHs0eG5p83rFLhHeV00ug/Yf9nZM6fLeUrPguBTkTQOdpAWWspMh55TZfVQDPaN3NQJfbVRAxdIw==}
+     engines: {iojs: '>=1.0.0', node: '>=0.10.0'}
+ 
++  rgbcolor@1.0.1:
++    resolution: {integrity: sha512-9aZLIrhRaD97sgVhtJOW6ckOEh6/GnvQtdVNfdZ6s67+3/XwLS9lBcQYzEEhYVeUowN7pRzMLsyGhK2i/xvWbw==}
++    engines: {node: '>= 0.8.15'}
++
+   run-parallel@1.2.0:
+     resolution: {integrity: sha512-5l4VyZR86LZ/lDxZTR6jqL8AFE2S0IFLMP26AbjsLVADxHdhB/c0GUsH+y39UfCi3dzz8OlQuPmnaJOMoDHQBA==}
+ 
+@@ -2363,6 +2428,10 @@ packages:
+   stable-hash@0.0.5:
+     resolution: {integrity: sha512-+L3ccpzibovGXFK+Ap/f8LOS0ahMrHTf3xu7mMLSpEGU0EO9ucaysSylKo9eRDFNhWve/y275iPmIZ4z39a9iA==}
+ 
++  stackblur-canvas@2.7.0:
++    resolution: {integrity: sha512-yf7OENo23AGJhBriGx0QivY5JP6Y1HbrrDI6WLt6C5auYZXlQrheoY8hD4ibekFKz1HOfE48Ww8kMWMnJD/zcQ==}
++    engines: {node: '>=0.1.14'}
++
+   stop-iteration-iterator@1.1.0:
+     resolution: {integrity: sha512-eLoXW/DHyl62zxY4SCaIgnRhuMr6ri4juEYARS8E6sCEqzKpOiE521Ucofdx+KnDZl5xmvGYaaKCk5FEOxJCoQ==}
+     engines: {node: '>= 0.4'}
+@@ -2426,6 +2495,10 @@ packages:
+     resolution: {integrity: sha512-ot0WnXS9fgdkgIcePe6RHNk1WA8+muPa6cSjeR3V8K27q9BB1rTE3R1p7Hv0z1ZyAc8s6Vvv8DIyWf681MAt0w==}
+     engines: {node: '>= 0.4'}
+ 
++  svg-pathdata@6.0.3:
++    resolution: {integrity: sha512-qsjeeq5YjBZ5eMdFuUa4ZosMLxgr5RZ+F+Y1OrDhuOCEInRMA3x74XdBtggJcj9kOeInz0WE+LgCPDkZFlBYJw==}
++    engines: {node: '>=12.0.0'}
++
+   tailwindcss@4.1.18:
+     resolution: {integrity: sha512-4+Z+0yiYyEtUVCScyfHCxOYP06L5Ne+JiHhY2IjR2KWMIWhJOYZKLSGZaP5HkZ8+bY0cxfzwDE5uOmzFXyIwxw==}
+ 
+@@ -2433,6 +2506,9 @@ packages:
+     resolution: {integrity: sha512-g9ljZiwki/LfxmQADO3dEY1CbpmXT5Hm2fJ+QaGKwSXUylMybePR7/67YW7jOrrvjEgL1Fmz5kzyAjWVWLlucg==}
+     engines: {node: '>=6'}
+ 
++  text-segmentation@1.0.3:
++    resolution: {integrity: sha512-iOiPUo/BGnZ6+54OsWxZidGCsdU8YbE4PSpdPinp7DeMtUJNJBoJ/ouUSTJjHkh1KntHaltHl/gDs2FC4i5+Nw==}
++
+   tiny-invariant@1.3.3:
+     resolution: {integrity: sha512-+FbBPE1o9QAYvviau/qC5SE3caw21q3xkvWKBtja5vgqOWIHHJ3ioaq1VPfn/Szqctz2bU/oYeKd9/z5BL+PVg==}
+ 
+@@ -2504,6 +2580,9 @@ packages:
+     peerDependencies:
+       react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+ 
++  utrie@1.0.2:
++    resolution: {integrity: sha512-1MLa5ouZiOmQzUbjbu9VmjLzn1QLXBhwpUa7kdLUQK+KQ5KA9I1vk5U4YHe/X2Ch7PYnJfWuWT+VbuxbGwljhw==}
++
+   victory-vendor@37.3.6:
+     resolution: {integrity: sha512-SbPDPdDBYp+5MJHhBCAyI7wKM3d5ivekigc2Dk2s7pgbZ9wIgIBYGVw4zGHBml/qTFbexrofXW6Gu4noGxrOwQ==}
+ 
+@@ -2941,6 +3020,8 @@ snapshots:
+ 
+   '@aws/lambda-invoke-store@0.2.2': {}
+ 
++  '@babel/runtime@7.28.4': {}
++
+   '@emnapi/core@1.7.1':
+     dependencies:
+       '@emnapi/wasi-threads': 1.1.0
+@@ -3686,6 +3767,11 @@ snapshots:
+     transitivePeerDependencies:
+       - aws-crt
+ 
++  '@types/pako@2.0.4': {}
++
++  '@types/raf@3.4.3':
++    optional: true
++
+   '@types/react-dom@19.2.3(@types/react@19.2.7)':
+     dependencies:
+       '@types/react': 19.2.7
+@@ -3694,6 +3780,9 @@ snapshots:
+     dependencies:
+       csstype: 3.2.3
+ 
++  '@types/trusted-types@2.0.7':
++    optional: true
++
+   '@types/use-sync-external-store@0.0.6': {}
+ 
+   '@typescript-eslint/eslint-plugin@8.50.1(@typescript-eslint/parser@8.50.1(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3)':
+@@ -3948,6 +4037,9 @@ snapshots:
+ 
+   balanced-match@1.0.2: {}
+ 
++  base64-arraybuffer@1.0.2:
++    optional: true
++
+   bcryptjs@3.0.3: {}
+ 
+   bowser@2.13.1: {}
+@@ -3990,6 +4082,18 @@ snapshots:
+ 
+   caniuse-lite@1.0.30001761: {}
+ 
++  canvg@3.0.11:
++    dependencies:
++      '@babel/runtime': 7.28.4
++      '@types/raf': 3.4.3
++      core-js: 3.47.0
++      raf: 3.4.1
++      regenerator-runtime: 0.13.11
++      rgbcolor: 1.0.1
++      stackblur-canvas: 2.7.0
++      svg-pathdata: 6.0.3
++    optional: true
++
+   chalk@4.1.2:
+     dependencies:
+       ansi-styles: 4.3.0
+@@ -4019,12 +4123,20 @@ snapshots:
+ 
+   concat-map@0.0.1: {}
+ 
++  core-js@3.47.0:
++    optional: true
++
+   cross-spawn@7.0.6:
+     dependencies:
+       path-key: 3.1.1
+       shebang-command: 2.0.0
+       which: 2.0.2
+ 
++  css-line-break@2.1.0:
++    dependencies:
++      utrie: 1.0.2
++    optional: true
++
+   csstype@3.2.3: {}
+ 
+   d3-array@3.2.4:
+@@ -4115,6 +4227,11 @@ snapshots:
+     dependencies:
+       esutils: 2.0.3
+ 
++  dompurify@3.3.1:
++    optionalDependencies:
++      '@types/trusted-types': 2.0.7
++    optional: true
++
+   dotenv@17.2.3: {}
+ 
+   dunder-proto@1.0.1:
+@@ -4476,6 +4593,12 @@ snapshots:
+ 
+   fast-levenshtein@2.0.6: {}
+ 
++  fast-png@6.4.0:
++    dependencies:
++      '@types/pako': 2.0.4
++      iobuffer: 5.4.0
++      pako: 2.1.0
++
+   fast-xml-parser@5.2.5:
+     dependencies:
+       strnum: 2.1.2
+@@ -4488,6 +4611,8 @@ snapshots:
+     optionalDependencies:
+       picomatch: 4.0.3
+ 
++  fflate@0.8.2: {}
++
+   file-entry-cache@8.0.0:
+     dependencies:
+       flat-cache: 4.0.1
+@@ -4601,6 +4726,12 @@ snapshots:
+     dependencies:
+       function-bind: 1.1.2
+ 
++  html2canvas@1.4.1:
++    dependencies:
++      css-line-break: 2.1.0
++      text-segmentation: 1.0.3
++    optional: true
++
+   ignore@5.3.2: {}
+ 
+   ignore@7.0.5: {}
+@@ -4624,6 +4755,8 @@ snapshots:
+ 
+   internmap@2.0.3: {}
+ 
++  iobuffer@5.4.0: {}
++
+   is-array-buffer@3.0.5:
+     dependencies:
+       call-bind: 1.0.8
+@@ -4772,6 +4905,17 @@ snapshots:
+     dependencies:
+       minimist: 1.2.8
+ 
++  jspdf@3.0.4:
++    dependencies:
++      '@babel/runtime': 7.28.4
++      fast-png: 6.4.0
++      fflate: 0.8.2
++    optionalDependencies:
++      canvg: 3.0.11
++      core-js: 3.47.0
++      dompurify: 3.3.1
++      html2canvas: 1.4.1
++
+   jsx-ast-utils@3.3.5:
+     dependencies:
+       array-includes: 3.1.9
+@@ -4980,6 +5124,8 @@ snapshots:
+     dependencies:
+       p-limit: 3.1.0
+ 
++  pako@2.1.0: {}
++
+   parent-module@1.0.1:
+     dependencies:
+       callsites: 3.1.0
+@@ -4990,6 +5136,9 @@ snapshots:
+ 
+   path-parse@1.0.7: {}
+ 
++  performance-now@2.1.0:
++    optional: true
++
+   picocolors@1.1.1: {}
+ 
+   picomatch@2.3.1: {}
+@@ -5026,6 +5175,11 @@ snapshots:
+ 
+   queue-microtask@1.2.3: {}
+ 
++  raf@3.4.1:
++    dependencies:
++      performance-now: 2.1.0
++    optional: true
++
+   react-dom@19.0.0(react@19.0.0):
+     dependencies:
+       react: 19.0.0
+@@ -5081,6 +5235,9 @@ snapshots:
+       get-proto: 1.0.1
+       which-builtin-type: 1.2.1
+ 
++  regenerator-runtime@0.13.11:
++    optional: true
++
+   regexp.prototype.flags@1.5.4:
+     dependencies:
+       call-bind: 1.0.8
+@@ -5110,6 +5267,9 @@ snapshots:
+ 
+   reusify@1.1.0: {}
+ 
++  rgbcolor@1.0.1:
++    optional: true
++
+   run-parallel@1.2.0:
+     dependencies:
+       queue-microtask: 1.2.3
+@@ -5231,6 +5391,9 @@ snapshots:
+ 
+   stable-hash@0.0.5: {}
+ 
++  stackblur-canvas@2.7.0:
++    optional: true
++
+   stop-iteration-iterator@1.1.0:
+     dependencies:
+       es-errors: 1.3.0
+@@ -5305,10 +5468,18 @@ snapshots:
+ 
+   supports-preserve-symlinks-flag@1.0.0: {}
+ 
++  svg-pathdata@6.0.3:
++    optional: true
++
+   tailwindcss@4.1.18: {}
+ 
+   tapable@2.3.0: {}
+ 
++  text-segmentation@1.0.3:
++    dependencies:
++      utrie: 1.0.2
++    optional: true
++
+   tiny-invariant@1.3.3: {}
+ 
+   tinyglobby@0.2.15:
+@@ -5420,6 +5591,11 @@ snapshots:
+     dependencies:
+       react: 19.0.0
+ 
++  utrie@1.0.2:
++    dependencies:
++      base64-arraybuffer: 1.0.2
++    optional: true
++
+   victory-vendor@37.3.6:
+     dependencies:
+       '@types/d3-array': 3.2.2
+diff --git a/prisma/schema.prisma b/prisma/schema.prisma
+index 61a2b1c..bac435a 100644
+--- a/prisma/schema.prisma
++++ b/prisma/schema.prisma
+@@ -24,6 +24,9 @@ model User {
+   clearanceRequests ClearanceRequest[]
+   createdJobs       Job[]              @relation("JobCreator")
+   payments          Payment[]
++
++  isLibraryClear    Boolean            @default(true)
++  isAdminClear      Boolean            @default(true)
+ }
+ 
+ model Job {
+@@ -50,6 +53,10 @@ model JobApplication {
+   status    String   @default("PENDING")
+   appliedAt DateTime @default(now())
+   updatedAt DateTime @updatedAt
++  
++  proofImage1    String?
++  proofImage2    String?
++  submissionNote String?
+ 
+   user User @relation(fields: [userId], references: [id])
+   job  Job  @relation(fields: [jobId], references: [id])

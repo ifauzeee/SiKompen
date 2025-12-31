@@ -67,10 +67,10 @@ export default function DashboardClient({ user, stats, activities }: DashboardCl
         <div ref={container} className="pt-8 px-4 sm:px-8 max-w-[1600px] mx-auto min-h-screen pb-12 space-y-8">
             <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-4">
                 <div className="welcome-text">
-                    <h1 className="text-4xl md:text-5xl font-black text-gray-900 tracking-tight mb-2">
+                    <h1 className="text-3xl md:text-5xl font-black text-gray-900 tracking-tight mb-2">
                         Selamat Datang, <span className="text-[#008C9D]">{user.name.split(' ')[0]}</span>.
                     </h1>
-                    <p className="text-gray-500 text-lg font-medium">
+                    <p className="text-gray-500 text-sm md:text-lg font-medium">
                         Semester Ganjil 2025/2026 &bull; Teknik Informatika
                     </p>
                 </div>
@@ -83,14 +83,14 @@ export default function DashboardClient({ user, stats, activities }: DashboardCl
             </header>
 
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                <div className="bento-item col-span-1 md:col-span-2 lg:col-span-2 row-span-2 bg-[#008C9D] text-white rounded-[2.5rem] p-8 relative overflow-hidden group shadow-2xl shadow-gray-200 border border-[#007A8A]">
+                <div className="bento-item col-span-1 md:col-span-2 lg:col-span-2 row-span-2 bg-[#008C9D] text-white rounded-[2.5rem] p-6 md:p-8 relative overflow-hidden group shadow-2xl shadow-gray-200 border border-[#007A8A]">
                     <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-white/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2" />
                     <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-black/10 rounded-full blur-[80px] translate-y-1/2 -translate-x-1/2" />
 
                     <div className="relative z-10 flex flex-col h-full justify-between">
                         <div className="flex justify-between items-start">
                             <div className="p-3 bg-white/20 backdrop-blur-md rounded-2xl border border-white/10">
-                                <ShieldAlert className="w-8 h-8 text-white" />
+                                <ShieldAlert className="w-6 h-6 md:w-8 md:h-8 text-white" />
                             </div>
                             <div className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider border ${isCritical ? 'bg-red-500/20 border-red-500/30 text-white' : 'bg-green-500/20 border-green-500/30 text-white'}`}>
                                 {isCritical ? 'Perlu Perhatian' : 'Aman'}
@@ -98,20 +98,20 @@ export default function DashboardClient({ user, stats, activities }: DashboardCl
                         </div>
 
                         <div className="mt-8">
-                            <p className="text-white/70 font-medium text-sm uppercase tracking-widest mb-2">Sisa Tanggungan</p>
-                            <div className="flex items-end gap-3 mb-6">
-                                <span className="text-8xl font-black tracking-tighter leading-none text-white">
+                            <p className="text-white/70 font-medium text-xs md:text-sm uppercase tracking-widest mb-2">Sisa Tanggungan</p>
+                            <div className="flex items-end gap-2 md:gap-3 mb-6">
+                                <span className="text-6xl md:text-8xl font-black tracking-tighter leading-none text-white">
                                     {user.totalHours}
                                 </span>
-                                <span className="text-2xl font-bold text-white/50 mb-2">Jam</span>
+                                <span className="text-xl md:text-2xl font-bold text-white/50 mb-1 md:mb-2">Jam</span>
                             </div>
 
                             <div className="space-y-2">
-                                <div className="flex justify-between text-sm font-medium text-white/70">
+                                <div className="flex justify-between text-xs md:text-sm font-medium text-white/70">
                                     <span>Progress Pelunasan</span>
                                     <span>{100 - debtPercentage}% Selesai</span>
                                 </div>
-                                <div className="w-full bg-black/20 h-4 rounded-full overflow-hidden backdrop-blur-sm">
+                                <div className="w-full bg-black/20 h-3 md:h-4 rounded-full overflow-hidden backdrop-blur-sm">
                                     <div
                                         className="h-full rounded-full bg-white relative transition-all duration-1000 ease-out"
                                         style={{ width: `${100 - debtPercentage}%` }}
@@ -119,20 +119,20 @@ export default function DashboardClient({ user, stats, activities }: DashboardCl
                                         <div className="absolute inset-0 bg-white/50 animate-[shimmer_2s_infinite]" />
                                     </div>
                                 </div>
-                                <p className="text-xs text-white/50 mt-2">Batas maksimal akumulasi: {maxDebt} Jam per semester.</p>
+                                <p className="text-[10px] md:text-xs text-white/50 mt-2">Batas maksimal akumulasi: {maxDebt} Jam per semester.</p>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div className="bento-item col-span-1 md:col-span-1 bg-white rounded-[2.5rem] p-6 border border-gray-100 shadow-xl shadow-gray-100/50 flex flex-col justify-between group hover:border-[#CE2029]/30 transition-colors duration-300">
+                <div className="bento-item col-span-1 md:col-span-1 bg-white rounded-[2rem] md:rounded-[2.5rem] p-6 border border-gray-100 shadow-xl shadow-gray-100/50 flex flex-col justify-between group hover:border-[#CE2029]/30 transition-colors duration-300">
                     <div>
                         <div className="flex justify-between items-start mb-4">
                             <div className="p-3 bg-[#CE2029]/10 text-[#CE2029] rounded-2xl group-hover:scale-110 transition-transform duration-300">
                                 <Briefcase className="w-6 h-6" />
                             </div>
                         </div>
-                        <p className="text-gray-400 text-sm font-bold uppercase tracking-wider">Sedang Dikerjakan</p>
+                        <p className="text-gray-400 text-xs md:text-sm font-bold uppercase tracking-wider">Sedang Dikerjakan</p>
                         <h3 className="text-3xl font-black text-gray-900 mt-1">{stats.activeJobs}</h3>
                     </div>
 
@@ -148,14 +148,14 @@ export default function DashboardClient({ user, stats, activities }: DashboardCl
                     </div>
                 </div>
 
-                <div className="bento-item col-span-1 md:col-span-1 bg-white rounded-[2.5rem] p-6 border border-gray-100 shadow-xl shadow-gray-100/50 flex flex-col justify-between group hover:border-[#F4B41A]/30 transition-colors duration-300">
+                <div className="bento-item col-span-1 md:col-span-1 bg-white rounded-[2rem] md:rounded-[2.5rem] p-6 border border-gray-100 shadow-xl shadow-gray-100/50 flex flex-col justify-between group hover:border-[#F4B41A]/30 transition-colors duration-300">
                     <div>
                         <div className="flex justify-between items-start mb-4">
                             <div className="p-3 bg-[#F4B41A]/10 text-[#F4B41A] rounded-2xl group-hover:scale-110 transition-transform duration-300">
                                 <CheckCircle2 className="w-6 h-6" />
                             </div>
                         </div>
-                        <p className="text-gray-400 text-sm font-bold uppercase tracking-wider">Telah Diselesaikan</p>
+                        <p className="text-gray-400 text-xs md:text-sm font-bold uppercase tracking-wider">Telah Diselesaikan</p>
                         <h3 className="text-3xl font-black text-gray-900 mt-1">{stats.completedHours}</h3>
                     </div>
                     <div className="mt-4">
@@ -166,26 +166,26 @@ export default function DashboardClient({ user, stats, activities }: DashboardCl
                     </div>
                 </div>
 
-                <div className="bento-item col-span-1 md:col-span-2 lg:col-span-2 bg-white rounded-[2.5rem] p-8 border border-gray-100 shadow-xl shadow-gray-100/50 flex flex-col justify-between overflow-hidden relative group">
+                <div className="bento-item col-span-1 md:col-span-2 lg:col-span-2 bg-white rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-8 border border-gray-100 shadow-xl shadow-gray-100/50 flex flex-col justify-between overflow-hidden relative group">
                     <div className="absolute top-0 right-0 w-[300px] h-[300px] bg-red-500/5 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2 pointer-events-none" />
 
                     <div>
                         <div className="flex justify-between items-center mb-6 relative z-10">
-                            <h3 className="font-bold text-lg text-gray-900 flex items-center gap-2">
+                            <h3 className="font-bold text-base md:text-lg text-gray-900 flex items-center gap-2">
                                 <Wallet className="w-5 h-5 text-[#CE2029]" />
                                 Estimasi Biaya Denda
                             </h3>
-                            <div className="px-3 py-1 bg-[#CE2029]/10 text-[#CE2029] rounded-full text-xs font-bold">
+                            <div className="px-3 py-1 bg-[#CE2029]/10 text-[#CE2029] rounded-full text-[10px] md:text-xs font-bold">
                                 Rp 10.000 / Jam
                             </div>
                         </div>
 
                         <div className="flex items-end gap-3 mb-2 relative z-10">
-                            <span className="text-5xl font-black tracking-tight text-gray-900">
+                            <span className="text-3xl md:text-5xl font-black tracking-tight text-gray-900">
                                 {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(user.totalHours * 10000)}
                             </span>
                         </div>
-                        <p className="text-gray-400 text-sm font-medium mb-8 relative z-10">
+                        <p className="text-gray-400 text-xs md:text-sm font-medium mb-8 relative z-10">
                             Estimasi tunai jika mengkonversi seluruh sisa {user.totalHours} jam kompen.
                         </p>
                     </div>
@@ -206,13 +206,13 @@ export default function DashboardClient({ user, stats, activities }: DashboardCl
                     </div>
                 </div>
 
-                <div className="bento-item col-span-1 md:col-span-1 lg:col-span-2 bg-white rounded-[2.5rem] p-8 border border-gray-100 shadow-xl shadow-gray-100/50 overflow-hidden flex flex-col h-full">
-                    <h3 className="font-bold text-lg text-gray-900 mb-6 flex items-center gap-2">
+                <div className="bento-item col-span-1 md:col-span-1 lg:col-span-2 bg-white rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-8 border border-gray-100 shadow-xl shadow-gray-100/50 overflow-hidden flex flex-col h-full">
+                    <h3 className="font-bold text-base md:text-lg text-gray-900 mb-6 flex items-center gap-2">
                         <Clock className="w-5 h-5 text-[#008C9D]" />
                         Aktivitas Terbaru
                     </h3>
 
-                    <div className="space-y-6 overflow-y-auto pr-2 custom-scrollbar flex-1">
+                    <div className="space-y-6 overflow-y-auto pl-4 pr-1 md:pr-2 custom-scrollbar flex-1">
                         {activities.length > 0 ? activities.map((act) => (
                             <div key={act.id} className="relative pl-6 pb-6 border-l border-gray-100 last:border-0 last:pb-0 group">
                                 <div className={`absolute -left-[9px] top-0 w-4 h-4 rounded-full border-2 border-white transition-colors duration-300 ${act.type === 'APPROVED' ? 'bg-[#008C9D] group-hover:bg-[#007A8A] shadow-[0_0_0_4px_rgba(0,140,157,0.2)]' :
@@ -220,11 +220,11 @@ export default function DashboardClient({ user, stats, activities }: DashboardCl
                                         'bg-[#F4B41A] group-hover:bg-[#D49B15] shadow-[0_0_0_4px_rgba(244,180,26,0.2)]'
                                     }`} />
 
-                                <div className="mb-1 flex justify-between items-start">
-                                    <h4 className="font-bold text-gray-900 text-sm">{act.title}</h4>
-                                    <span className="text-[10px] font-semibold text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full">{act.time}</span>
+                                <div className="mb-1 flex justify-between items-start gap-4">
+                                    <h4 className="font-bold text-gray-900 text-sm leading-tight">{act.title}</h4>
+                                    <span className="text-[10px] font-semibold text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full shrink-0 whitespace-nowrap">{act.time}</span>
                                 </div>
-                                <p className="text-sm text-gray-500 leading-relaxed">{act.desc}</p>
+                                <p className="text-sm text-gray-500 leading-relaxed break-words">{act.desc}</p>
                             </div>
                         )) : (
                             <div className="flex flex-col items-center justify-center h-full text-center text-gray-400">
@@ -235,7 +235,7 @@ export default function DashboardClient({ user, stats, activities }: DashboardCl
                     </div>
                 </div>
 
-                <div className="bento-item col-span-1 md:col-span-1 lg:col-span-2 bg-white rounded-[2.5rem] p-8 border border-gray-100 shadow-xl shadow-gray-100/50 overflow-hidden flex flex-col justify-between group hover:border-[#008C9D]/30 transition-colors h-full">
+                <div className="bento-item col-span-1 md:col-span-1 lg:col-span-2 bg-white rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-8 border border-gray-100 shadow-xl shadow-gray-100/50 overflow-hidden flex flex-col justify-between group hover:border-[#008C9D]/30 transition-colors h-full">
                     <div className="flex justify-between items-start mb-6">
                         <div className="p-3 bg-[#008C9D]/10 text-[#008C9D] rounded-2xl group-hover:scale-110 transition-transform duration-300">
                             <Briefcase className="w-6 h-6" />

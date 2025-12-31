@@ -24,6 +24,9 @@ model User {
   clearanceRequests ClearanceRequest[]
   createdJobs       Job[]              @relation("JobCreator")
   payments          Payment[]
+
+  isLibraryClear    Boolean            @default(true)
+  isAdminClear      Boolean            @default(true)
 }
 
 model Job {
@@ -50,6 +53,10 @@ model JobApplication {
   status    String   @default("PENDING")
   appliedAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  
+  proofImage1    String?
+  proofImage2    String?
+  submissionNote String?
 
   user User @relation(fields: [userId], references: [id])
   job  Job  @relation(fields: [jobId], references: [id])

@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "./auth";
 import { revalidatePath } from "next/cache";
 
-export async function getApplicationsByStatus(status: 'PENDING' | 'ACCEPTED' = 'PENDING', supervisorId?: number) {
+export async function getApplicationsByStatus(status: 'PENDING' | 'ACCEPTED' | 'VERIFYING' = 'PENDING', supervisorId?: number) {
     const user = await getSessionUser();
     if (!user || !['ADMIN', 'PENGAWAS'].includes(user.role)) return [];
 
@@ -35,6 +35,48 @@ export async function getApplicationsByStatus(status: 'PENDING' | 'ACCEPTED' = '
     }
 }
 
+export async function submitJobProof(appId: number, proof1: string, proof2: string, note: string) {
+    const user = await getSessionUser();
+    if (!user) return { error: "Unauthorized" };
+
+    try {
+        const app = await prisma.jobApplication.findUnique({
+            where: { id: appId },
+            include: { user: true }
+        });
+
+        if (!app) return { error: "Lamaran tidak ditemukan" };
+        if (app.userId !== user.id) return { error: "Unauthorized" };
+        if (app.status !== 'ACCEPTED') return { error: "Hanya lamaran yang diterima yang bisa dikirim bukti." };
+
+        await prisma.jobApplication.update({
+            where: { id: appId },
+            data: {
+                proofImage1: proof1,
+                proofImage2: proof2,
+                submissionNote: note,
+                status: 'VERIFYING'
+            }
+        });
+
+        await prisma.activityLog.create({
+            data: {
+                userId: user.id,
+                action: "SUBMIT_PROOF",
+                targetType: 'APPLICATION',
+                targetId: appId,
+                details: `Mengirim bukti pengerjaan.`
+            }
+        });
+
+        revalidatePath('/dashboard/my-applications');
+        revalidatePath('/dashboard/my-jobs');
+        return { success: true };
+    } catch (e: any) {
+        return { error: e.message || "Gagal mengirim bukti." };
+    }
+}
+
 export async function updateApplicationStatus(appId: number, status: 'ACCEPTED' | 'COMPLETED' | 'REJECTED') {
     const user = await getSessionUser();
     if (!user || !['ADMIN', 'PENGAWAS'].includes(user.role)) return { error: 'Unauthorized' };
@@ -52,17 +94,9 @@ export async function updateApplicationStatus(appId: number, status: 'ACCEPTED' 
                 throw new Error('Unauthorized: Anda tidak memiliki akses ke lamaran ini.');
             }
 
-            if (status === 'ACCEPTED' && app.status !== 'PENDING') {
-                throw new Error('Hanya aplikasi PENDING yang bisa di-ACCEPT.');
-            }
-            if (status === 'COMPLETED' && app.status !== 'ACCEPTED') {
-                throw new Error('Hanya aplikasi ACCEPTED yang bisa di-COMPLETE.');
-            }
-
             if (status === 'ACCEPTED') {
-                if (app.job.quota <= 0) {
-                    throw new Error('Kuota pekerjaan sudah penuh.');
-                }
+                if (app.status !== 'PENDING') throw new Error('Hanya aplikasi PENDING yang bisa di-ACCEPT.');
+                if (app.job.quota <= 0) throw new Error('Kuota pekerjaan sudah penuh.');
 
                 const updatedJob = await tx.job.update({
                     where: { id: app.job.id },
@@ -83,9 +117,12 @@ export async function updateApplicationStatus(appId: number, status: 'ACCEPTED' 
             }
 
             else if (status === 'COMPLETED') {
+                if (!['ACCEPTED', 'VERIFYING'].includes(app.status)) {
+                    throw new Error('Hanya aplikasi ACCEPTED/VERIFYING yang bisa di-COMPLETE.');
+                }
+
                 const hoursToDeduct = app.job.hours;
                 const currentDebt = app.user.totalHours;
-
                 const newDebt = Math.max(0, currentDebt - hoursToDeduct);
 
                 await tx.user.update({
@@ -97,13 +134,9 @@ export async function updateApplicationStatus(appId: number, status: 'ACCEPTED' 
                     const existingClearance = await tx.clearanceRequest.findFirst({
                         where: { userId: app.user.id }
                     });
-
                     if (!existingClearance) {
                         await tx.clearanceRequest.create({
-                            data: {
-                                userId: app.user.id,
-                                status: 'PENDING'
-                            }
+                            data: { userId: app.user.id, status: 'PENDING' }
                         });
                     }
                 }
@@ -115,7 +148,7 @@ export async function updateApplicationStatus(appId: number, status: 'ACCEPTED' 
             }
 
             else if (status === 'REJECTED') {
-                if (app.status === 'ACCEPTED') {
+                if (app.status === 'ACCEPTED' || app.status === 'VERIFYING') {
                     await tx.job.update({
                         where: { id: app.job.id },
                         data: {
@@ -150,6 +183,7 @@ export async function updateApplicationStatus(appId: number, status: 'ACCEPTED' 
         revalidatePath('/dashboard');
         revalidatePath('/jobs');
         revalidatePath('/dashboard/my-jobs');
+        revalidatePath('/my-applications');
         return { success: true };
     } catch (e: any) {
         console.error(e);
@@ -173,55 +207,61 @@ export async function applyForJob(jobId: number) {
     }
 
     try {
-        const job = await prisma.job.findUnique({
-            where: { id: jobId }
-        });
+        await prisma.$transaction(async (tx) => {
+            const job = await tx.job.findUnique({
+                where: { id: jobId }
+            });
 
-        if (!job) {
-            return { error: "Pekerjaan tidak ditemukan." };
-        }
-
-        if (job.status !== 'OPEN' || job.quota <= 0) {
-            return { error: "Lowongan ini sudah ditutup atau penuh." };
-        }
-
-        const existingApp = await prisma.jobApplication.findFirst({
-            where: {
-                jobId: jobId,
-                userId: user.id
+            if (!job) {
+                throw new Error("Pekerjaan tidak ditemukan.");
             }
-        });
 
-        if (existingApp) {
-            return { error: "Anda sudah melamar pekerjaan ini." };
-        }
-
-        const activeAppsCount = await prisma.jobApplication.count({
-            where: {
-                userId: user.id,
-                status: 'PENDING'
+            if (job.status !== 'OPEN' || job.quota <= 0) {
+                throw new Error("Lowongan ini sudah ditutup atau penuh.");
             }
-        });
 
-        if (activeAppsCount >= 3) {
-            return { error: "Anda sudah memiliki 3 lamaran aktif. Tunggu proses validasi sebelum melamar lagi." };
-        }
+            const existingApp = await tx.jobApplication.findFirst({
+                where: {
+                    jobId: jobId,
+                    userId: user.id
+                }
+            });
 
-        await prisma.jobApplication.create({
-            data: {
-                jobId,
-                userId: user.id,
-                status: 'PENDING',
-                appliedAt: new Date()
+            if (existingApp) {
+                throw new Error("Anda sudah melamar pekerjaan ini.");
             }
+
+
+
+            const activeAppsCount = await tx.jobApplication.count({
+                where: {
+                    userId: user.id,
+                    status: 'PENDING'
+                }
+            });
+
+            if (activeAppsCount >= 3) {
+                throw new Error("Anda sudah memiliki 3 lamaran aktif. Tunggu proses validasi sebelum melamar lagi.");
+            }
+
+            await tx.jobApplication.create({
+                data: {
+                    jobId,
+                    userId: user.id,
+                    status: 'PENDING',
+                    appliedAt: new Date()
+                }
+            });
+
+
         });
 
         revalidatePath('/jobs');
         revalidatePath('/dashboard');
 
         return { success: true };
-    } catch (e) {
+    } catch (e: any) {
         console.error("Apply Job Error:", e);
-        return { error: "Terjadi kesalahan saat mengirim lamaran." };
+        return { error: e.message || "Terjadi kesalahan saat mengirim lamaran." };
     }
 }
