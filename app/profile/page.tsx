@@ -11,5 +11,5 @@ export default async function ProfilePage() {
         redirect('/login');
     }
 
-    return <ProfileClient user={user} />;
+    return <ProfileClient />;
 }

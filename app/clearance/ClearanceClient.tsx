@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from 'react';
-import { CheckCircle2, XCircle, ArrowRight, ShieldCheck, Wallet, Upload, Loader2, Info } from "lucide-react";
+import { CheckCircle2, XCircle, ArrowRight, ShieldCheck, Wallet, Loader2, Info } from "lucide-react";
 import { createPayment } from "@/app/actions/payment";
 import { useDialog } from "@/contexts/DialogContext";
 import React from 'react';

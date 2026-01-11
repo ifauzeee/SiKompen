@@ -72,8 +72,9 @@ export async function submitJobProof(appId: number, proof1: string, proof2: stri
         revalidatePath('/dashboard/my-applications');
         revalidatePath('/dashboard/my-jobs');
         return { success: true };
-    } catch (e: any) {
-        return { error: e.message || "Gagal mengirim bukti." };
+    } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : "Gagal mengirim bukti.";
+        return { error: message };
     }
 }
 
@@ -185,9 +186,10 @@ export async function updateApplicationStatus(appId: number, status: 'ACCEPTED' 
         revalidatePath('/dashboard/my-jobs');
         revalidatePath('/my-applications');
         return { success: true };
-    } catch (e: any) {
+    } catch (e: unknown) {
         console.error(e);
-        return { error: e.message || 'Gagal memproses validasi.' };
+        const message = e instanceof Error ? e.message : 'Gagal memproses validasi.';
+        return { error: message };
     }
 }
 
@@ -260,8 +262,9 @@ export async function applyForJob(jobId: number) {
         revalidatePath('/dashboard');
 
         return { success: true };
-    } catch (e: any) {
+    } catch (e: unknown) {
         console.error("Apply Job Error:", e);
-        return { error: e.message || "Terjadi kesalahan saat mengirim lamaran." };
+        const message = e instanceof Error ? e.message : "Terjadi kesalahan saat mengirim lamaran.";
+        return { error: message };
     }
 }

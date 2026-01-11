@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useRef, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
     LayoutDashboard,
     Briefcase,
@@ -12,7 +12,6 @@ import {
     Users,
     FolderOpen,
     UserCircle,
-    Settings,
     ChevronRight,
     Menu,
     X,

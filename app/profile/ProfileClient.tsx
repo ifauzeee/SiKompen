@@ -1,25 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { User } from "@prisma/client";
-import { logout, changePassword } from "@/app/actions/auth";
-import Link from "next/link";
+import { changePassword } from "@/app/actions/auth";
 import {
-    ArrowLeft,
-    User as UserIcon,
-    Shield,
-    GraduationCap,
     Lock,
-    LogOut,
     Check,
     AlertCircle,
-    Building,
-    BookOpen,
-    Clock
 } from "lucide-react";
 
-export default function ProfileClient({ user }: { user: User }) {
-    const [showPasswordForm, setShowPasswordForm] = useState(false);
+export default function ProfileClient() {
     const [currentPassword, setCurrentPassword] = useState("");
     const [newPassword, setNewPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
@@ -49,26 +38,9 @@ export default function ProfileClient({ user }: { user: User }) {
             setConfirmPassword("");
             setTimeout(() => {
                 setSuccess(false);
-                setShowPasswordForm(false);
             }, 2000);
         }
     }
-
-    async function handleLogout() {
-        await logout();
-    }
-
-    const roleIcons = {
-        'ADMIN': <Shield size={24} className="text-white" />,
-        'PENGAWAS': <UserIcon size={24} className="text-[#008C9D]" />,
-        'MAHASISWA': <GraduationCap size={24} className="text-[#CE2029]" />
-    };
-
-    const roleColors = {
-        'ADMIN': 'bg-[#008C9D] text-white border-[#008C9D]',
-        'PENGAWAS': 'bg-white text-gray-900 border-[#008C9D]',
-        'MAHASISWA': 'bg-white text-gray-900 border-[#CE2029]'
-    };
 
     return (
         <div className="pt-8 px-4 sm:px-8 max-w-[1600px] mx-auto min-h-screen pb-12 space-y-8">

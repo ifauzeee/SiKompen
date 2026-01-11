@@ -40,7 +40,7 @@ export async function verifySession() {
             algorithms: ['HS256'],
         })
         return payload as SessionPayload
-    } catch (error) {
+    } catch (_error) {
         return null
     }
 }

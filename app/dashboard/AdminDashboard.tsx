@@ -2,19 +2,15 @@
 
 import Link from "next/link";
 import {
-    Users,
     Briefcase,
     FileCheck,
     PlusCircle,
     AlertTriangle,
-    Clock,
     Settings,
     FileUp,
-    Download,
     ChevronRight,
-    FileText,
     TrendingUp,
-    Search
+    Users
 } from "lucide-react";
 import ApplicationList from "./ApplicationList";
 import { User, JobApplication } from "@prisma/client";
@@ -32,7 +28,7 @@ interface AdminDashboardProps {
     topDebtors?: { name: string; nim: string | null; totalHours: number }[];
 }
 
-export default function AdminDashboard({ user, stats, applications, acceptedApplications, topDebtors }: AdminDashboardProps) {
+export default function AdminDashboard({ user: _user, stats, applications, acceptedApplications, topDebtors }: AdminDashboardProps) {
 
     return (
         <div className="pt-8 px-4 sm:px-8 max-w-[1600px] mx-auto min-h-screen pb-12 space-y-8">

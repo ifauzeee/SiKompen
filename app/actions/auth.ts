@@ -83,7 +83,7 @@ export async function getSessionUser() {
 
     if (!user) return null;
 
-    const { password, ...safeUser } = user;
+    const { password: _password, ...safeUser } = user;
     return safeUser as unknown as User;
 }
 

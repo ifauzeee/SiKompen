@@ -60,7 +60,7 @@ async function getDashboardData() {
 
     if (!user) return null;
 
-    const { password, ...userWithoutPassword } = user;
+    const { password: _password, ...userWithoutPassword } = user;
     const cleanUser = userWithoutPassword as unknown as User;
 
     if (cleanUser.role === 'KEUANGAN') {
@@ -75,10 +75,11 @@ async function getDashboardData() {
         const activeJobs = await prisma.job.count({ where: { status: 'OPEN' } });
         const pendingValidations = await prisma.jobApplication.count({ where: { status: 'PENDING' } });
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const totalIncome = await (prisma as any).payment.aggregate({
             _sum: { amount: true },
             where: { status: 'APPROVED' }
-        }).then((res: any) => res._sum.amount || 0);
+        }).then((res: any) => res._sum.amount || 0); // eslint-disable-line @typescript-eslint/no-explicit-any
 
         const pendingApps = await getApplicationsByStatus('PENDING');
         const acceptedApps = await getApplicationsByStatus('ACCEPTED');
@@ -228,6 +229,7 @@ export default async function DashboardPage() {
 
     if (dashboardData.role === 'PENGAWAS') {
         const { supervisorStats, applications, acceptedApplications } = dashboardData;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const verifyingApplications = (dashboardData as any).verifyingApplications || [];
         return (
             <SupervisorDashboard

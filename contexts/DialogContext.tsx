@@ -19,15 +19,17 @@ interface DialogContextType {
 
 const DialogContext = createContext<DialogContextType | undefined>(undefined);
 
+type DialogResult = void | boolean | string | null | undefined;
+
 export function DialogProvider({ children }: { children: React.ReactNode }) {
     const [isOpen, setIsOpen] = useState(false);
     const [type, setType] = useState<DialogType>('alert');
     const [options, setOptions] = useState<DialogOptions>({ message: '' });
 
-    const resolveRef = useRef<(value: any) => void>(() => { });
+    const resolveRef = useRef<(value: DialogResult) => void>(() => { });
 
     const openDialog = useCallback((dialogType: DialogType, dialogOptions: DialogOptions) => {
-        return new Promise<any>((resolve) => {
+        return new Promise<DialogResult>((resolve) => {
             setType(dialogType);
             setOptions(dialogOptions);
             setIsOpen(true);
@@ -35,7 +37,7 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
         });
     }, []);
 
-    const handleClose = useCallback((value: any) => {
+    const handleClose = useCallback((value: DialogResult) => {
         setIsOpen(false);
         resolveRef.current(value);
     }, []);
@@ -50,7 +52,8 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
     }, [openDialog]);
 
     const showPrompt = useCallback(async (message: string, defaultValue?: string, title?: string) => {
-        return await openDialog('prompt', { message, defaultValue, title });
+        const result = await openDialog('prompt', { message, defaultValue, title });
+        return result as string | null;
     }, [openDialog]);
 
     return (

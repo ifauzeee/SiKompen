@@ -26,7 +26,7 @@ export default function SettingsClient({ settings }: { settings: Setting[] }) {
         setTimeout(() => setSaved(null), 2000);
     }
 
-    const settingConfig: Record<string, { label: string, icon: any, placeholder: string }> = {
+    const settingConfig: Record<string, { label: string, icon: React.ElementType, placeholder: string }> = {
         'semester_aktif': {
             label: 'Semester Aktif',
             icon: Calendar,

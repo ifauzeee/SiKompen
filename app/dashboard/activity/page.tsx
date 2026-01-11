@@ -2,7 +2,7 @@ import { getSessionUser } from "@/app/actions/auth";
 import { getActivityLogs } from "@/app/actions/admin";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Clock, User, Briefcase, Settings, FileUp, CheckCircle, XCircle, Edit } from "lucide-react";
+import { ArrowLeft, Clock, Briefcase, Settings, FileUp, CheckCircle, XCircle, Edit } from "lucide-react";
 
 export const dynamic = 'force-dynamic';
 

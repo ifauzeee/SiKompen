@@ -5,7 +5,6 @@ import {
     Briefcase,
     FileCheck,
     PlusCircle,
-    Users,
     TrendingUp,
     ShieldCheck
 } from "lucide-react";
@@ -24,7 +23,7 @@ interface SupervisorDashboardProps {
     verifyingApplications?: (JobApplication & { user: { name: string; nim: string | null; totalHours: number }; job: { title: string; hours: number }; proofImage1: string | null; proofImage2: string | null; submissionNote: string | null })[];
 }
 
-export default function SupervisorDashboard({ user, stats, applications, acceptedApplications, verifyingApplications }: SupervisorDashboardProps) {
+export default function SupervisorDashboard({ user: _user, stats, applications, acceptedApplications, verifyingApplications }: SupervisorDashboardProps) {
 
     return (
         <div className="pt-8 px-4 sm:px-8 max-w-[1600px] mx-auto min-h-screen pb-12 space-y-8">

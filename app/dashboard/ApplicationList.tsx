@@ -1,5 +1,5 @@
 "use client";
-import { Check, X, Clock, FileCheck, Play, Eye, Image, ExternalLink } from "lucide-react";
+import { Check, X, Clock, FileCheck, Play, Eye, Image as ImageIcon, ExternalLink } from "lucide-react";
 import { updateApplicationStatus } from "@/app/actions/applications";
 import { useState } from "react";
 import { useDialog } from "@/contexts/DialogContext";
@@ -125,7 +125,7 @@ export default function ApplicationList({ applications, variant, title }: Applic
                                                 onClick={() => setExpandedId(isExpanded ? null : app.id)}
                                                 className="flex items-center gap-1.5 bg-purple-50 text-purple-700 px-2 py-1 rounded-md hover:bg-purple-100 transition-colors whitespace-nowrap"
                                             >
-                                                <Image size={12} />
+                                                <ImageIcon size={12} />
                                                 Lihat Bukti
                                             </button>
                                         )}
@@ -203,7 +203,7 @@ export default function ApplicationList({ applications, variant, title }: Applic
                                             className="flex items-center gap-3 px-4 py-3 bg-white rounded-xl border border-gray-200 hover:border-[#008C9D] hover:shadow-lg transition-all group/link"
                                         >
                                             <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600">
-                                                <Image size={20} />
+                                                <ImageIcon size={20} />
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-sm font-bold text-gray-900">Foto Sebelum</p>
@@ -220,7 +220,7 @@ export default function ApplicationList({ applications, variant, title }: Applic
                                                 className="flex items-center gap-3 px-4 py-3 bg-white rounded-xl border border-gray-200 hover:border-[#008C9D] hover:shadow-lg transition-all group/link"
                                             >
                                                 <div className="w-10 h-10 bg-green-50 rounded-lg flex items-center justify-center text-green-600">
-                                                    <Image size={20} />
+                                                    <ImageIcon size={20} />
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <p className="text-sm font-bold text-gray-900">Foto Sesudah</p>

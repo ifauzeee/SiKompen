@@ -10,14 +10,18 @@ export default async function FinancePage() {
         redirect('/dashboard');
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const totalIncome = await (prisma as any).payment.aggregate({
         _sum: { amount: true },
         where: { status: 'APPROVED' }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
     }).then((res: any) => res._sum.amount || 0);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const pendingIncome = await (prisma as any).payment.aggregate({
         _sum: { amount: true },
         where: { status: 'PENDING' }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
     }).then((res: any) => res._sum.amount || 0);
 
     const totalDebtors = await prisma.user.count({
@@ -29,6 +33,7 @@ export default async function FinancePage() {
         where: { role: 'MAHASISWA' }
     }).then(res => res._sum.totalHours || 0);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const payments = await (prisma as any).payment.findMany({
         where: { status: 'PENDING' },
         include: {
@@ -37,6 +42,7 @@ export default async function FinancePage() {
         orderBy: { createdAt: 'desc' }
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const history = await (prisma as any).payment.findMany({
         where: { status: { not: 'PENDING' } },
         take: 10,

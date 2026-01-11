@@ -39,7 +39,7 @@ export async function updateStudentHours(studentId: number, newHours: number, re
         revalidatePath('/dashboard');
         revalidatePath('/dashboard/users');
         return { success: true };
-    } catch (e) {
+    } catch (e: unknown) {
         console.error(e);
         return { error: 'Gagal mengupdate jam hutang.' };
     }
@@ -95,7 +95,7 @@ export async function updateSystemSetting(key: string, value: string) {
 
         revalidatePath('/dashboard/settings');
         return { success: true };
-    } catch (e) {
+    } catch (e: unknown) {
         console.error(e);
         return { error: 'Gagal menyimpan pengaturan.' };
     }

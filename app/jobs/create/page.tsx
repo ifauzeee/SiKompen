@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Briefcase, Clock, Users, AlertCircle } from "lucide-react";
+import { Clock, Users, AlertCircle } from "lucide-react";
 import { createJob } from "@/app/actions/jobs";
 
 function SubmitButton() {

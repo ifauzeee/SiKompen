@@ -49,7 +49,7 @@ export async function createPayment(userId: number, amount: number, hoursEquival
 
         revalidatePath('/dashboard/finance');
         return { success: true };
-    } catch (error) {
+    } catch (_error) {
         return { error: "Gagal membuat pembayaran" };
     }
 }
@@ -115,7 +115,7 @@ export async function verifyPayment(paymentId: number, status: 'APPROVED' | 'REJ
 
         revalidatePath('/dashboard/finance');
         return { success: true };
-    } catch (error) {
+    } catch (_error) {
         return { error: "Gagal memverifikasi pembayaran" };
     }
 }

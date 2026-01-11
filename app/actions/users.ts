@@ -103,7 +103,7 @@ export async function getUsers() {
     });
 
     return users.map(user => {
-        const { password, createdAt, updatedAt, ...safeUser } = user;
+        const { password: _password, createdAt, updatedAt, ...safeUser } = user;
 
         return {
             ...safeUser,

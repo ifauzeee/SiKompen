@@ -2,9 +2,8 @@
 
 import { useState } from "react";
 import { useDialog } from "@/contexts/DialogContext";
-import { Check, X, FileText, Clock, AlertCircle, TrendingUp, Users, Wallet, History, AlertTriangle, ArrowUpRight } from "lucide-react";
+import { Check, X, FileText, Clock, Users, Wallet, History, AlertTriangle, ArrowUpRight } from "lucide-react";
 import { verifyPayment } from "@/app/actions/payment";
-import Image from "next/image";
 
 type Payment = {
     id: number;
@@ -149,7 +148,7 @@ export default function FinanceDashboardClient({ payments, stats, history, debto
                 ].map((tab) => (
                     <button
                         key={tab.id}
-                        onClick={() => setActiveTab(tab.id as any)}
+                        onClick={() => setActiveTab(tab.id as 'VERIFY' | 'HISTORY' | 'DEBTORS')}
                         className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all ${activeTab === tab.id
                             ? 'bg-white text-gray-900 shadow-sm'
                             : 'text-gray-500 hover:text-gray-700'

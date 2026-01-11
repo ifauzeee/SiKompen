@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useDialog } from "@/contexts/DialogContext";
 import { Plus, Trash2, Search, User as UserIcon, Shield, GraduationCap, ChevronRight, Building, BookOpen, ArrowLeft, Edit, Wallet } from "lucide-react";
 import { deleteUser } from "@/app/actions/users";

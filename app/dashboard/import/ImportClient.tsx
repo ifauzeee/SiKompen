@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { importStudents } from "@/app/actions/admin";
 import Link from "next/link";
-import { ArrowLeft, FileUp, Upload, CheckCircle, AlertCircle, FileText, Info, AlertTriangle } from "lucide-react";
+import { ArrowLeft, FileUp, Upload, CheckCircle, AlertCircle, FileText, Info } from "lucide-react";
 
 interface ParsedStudent {
     nim: string;

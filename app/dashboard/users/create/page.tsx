@@ -2,7 +2,7 @@
 
 import { useFormStatus } from "react-dom";
 import { createUser } from "@/app/actions/users";
-import { ArrowLeft, User, Shield, GraduationCap, Lock, AlertCircle, Building, BookOpen, UserCircle, Wallet } from "lucide-react";
+import { User, Shield, GraduationCap, Lock, AlertCircle, Building, BookOpen, UserCircle, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
