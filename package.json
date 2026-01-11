@@ -6,13 +6,15 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "postinstall": "prisma generate"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",
+    "@prisma/client": "^5.17.0",
     "@types/bcryptjs": "^3.0.0",
     "@types/nodemailer": "^7.0.4",
     "bcryptjs": "^3.0.3",
@@ -28,7 +30,6 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
-    "@prisma/client": "^5.17.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

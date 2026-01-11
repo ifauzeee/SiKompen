@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 const prisma = new PrismaClient();
 
 async function main() {
-    console.log("Start seeding (Admin Only)...");
+    console.log("Start seeding (Production - Admin Only)...");
 
     await prisma.payment.deleteMany().catch(() => { });
     await prisma.activityLog.deleteMany().catch(() => { });
@@ -13,25 +13,22 @@ async function main() {
     await prisma.job.deleteMany().catch(() => { });
     await prisma.user.deleteMany().catch(() => { });
 
-    const salt = await bcrypt.genSalt(12);
-    const hashedPassword = await bcrypt.hash("admin123", salt);
+    const adminPasswordHash = await bcrypt.hash("admin123", 12);
 
-    const admin = await prisma.user.create({
+    await prisma.user.create({
         data: {
             username: "admin",
-            name: "Administrator PNJ",
+            name: "Administrator",
             nim: null,
             prodi: "Pusat",
             role: "ADMIN",
             totalHours: 0,
-            password: hashedPassword,
+            password: adminPasswordHash,
         },
     });
 
+    console.log("Created Admin: admin / admin123");
     console.log("Seeding finished.");
-    console.log("Created Admin User:");
-    console.log("Username: admin");
-    console.log("Password: admin123");
 }
 
 main()

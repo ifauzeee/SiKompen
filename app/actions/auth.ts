@@ -32,8 +32,13 @@ export async function login(formData: FormData) {
 
     const { username, password } = validatedFields.data
 
-    const user = await prisma.user.findUnique({
-        where: { username },
+    const user = await prisma.user.findFirst({
+        where: {
+            OR: [
+                { username: username },
+                { nim: username }
+            ]
+        }
     })
 
     if (!user) {
