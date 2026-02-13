@@ -32,7 +32,7 @@ export default async function RootLayout({
   return (
     <html lang="id" suppressHydrationWarning className="scroll-smooth">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} relative min-h-screen overflow-x-hidden bg-gray-50 antialiased selection:bg-[#008C9D] selection:text-white`}
+        className={`${geistSans.variable} ${geistMono.variable} relative min-h-screen overflow-x-hidden bg-white antialiased selection:bg-[#008C9D] selection:text-white dark:bg-slate-950`}
       >
         <div className="pointer-events-none fixed inset-0 z-0">
           <div className="absolute top-[-10%] right-[-5%] h-[500px] w-[500px] rounded-full bg-[#008C9D]/5 blur-[100px]" />

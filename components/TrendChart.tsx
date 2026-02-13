@@ -46,39 +46,42 @@ export default function TrendChart({
               </linearGradient>
             </defs>
             <CartesianGrid
-              strokeDasharray="3 3"
+              strokeDasharray="4 4"
               vertical={false}
-              stroke="#e5e7eb"
-              className="dark:stroke-gray-800"
+              stroke="var(--chart-grid)"
             />
             <XAxis
               dataKey="month"
               axisLine={false}
               tickLine={false}
-              tick={{ fill: "#9ca3af", fontSize: 12 }}
+              tick={{ fill: "#94a3b8", fontSize: 10, fontWeight: "600" }}
               dy={10}
             />
             <YAxis
               axisLine={false}
               tickLine={false}
-              tick={{ fill: "#9ca3af", fontSize: 12 }}
+              tick={{ fill: "#94a3b8", fontSize: 10, fontWeight: "600" }}
             />
             <Tooltip
               contentStyle={{
-                backgroundColor: "rgba(255, 255, 255, 0.9)",
-                borderRadius: "12px",
-                border: "none",
-                boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)",
+                backgroundColor: "var(--chart-tooltip-bg)",
+                borderRadius: "16px",
+                border: "1px solid var(--chart-tooltip-border)",
+                boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+                padding: "12px",
               }}
-              itemStyle={{ color: color, fontWeight: "bold" }}
+              itemStyle={{ color: color, fontWeight: "800", fontSize: "14px" }}
+              labelStyle={{ color: "#64748b", marginBottom: "4px", fontSize: "11px", fontWeight: "700", textTransform: "uppercase" }}
+              cursor={{ stroke: color, strokeWidth: 1, strokeDasharray: "4 4" }}
             />
             <Area
               type="monotone"
               dataKey="hours"
               stroke={color}
-              strokeWidth={3}
+              strokeWidth={4}
               fillOpacity={1}
               fill="url(#colorHours)"
+              animationDuration={1500}
             />
           </AreaChart>
         </ResponsiveContainer>

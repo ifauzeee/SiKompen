@@ -201,10 +201,10 @@ export default function JobsList({
     >
       <header className="mb-4 flex flex-col items-start justify-between gap-6 md:flex-row md:items-end">
         <div className="w-full md:w-auto">
-          <h1 className="mb-2 text-3xl font-black tracking-tight text-gray-900 md:text-5xl">
+          <h1 className="mb-2 text-3xl font-black tracking-tight text-gray-900 dark:text-white md:text-5xl">
             Katalog Pekerjaan
           </h1>
-          <p className="text-base font-medium text-gray-500 md:text-lg">
+          <p className="text-base font-medium text-gray-500 dark:text-gray-400 md:text-lg">
             Temukan tugas kompen yang sesuai dengan keahlian anda.
           </p>
         </div>
@@ -216,13 +216,13 @@ export default function JobsList({
               placeholder="Cari pekerjaan..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full rounded-xl border-2 border-gray-100 bg-white px-4 py-3 text-sm font-medium text-gray-700 shadow-lg shadow-gray-100 transition-all outline-none placeholder:text-gray-400 focus:border-[#008C9D] md:w-80 md:rounded-full md:px-6 md:py-4 md:text-base"
+              className="w-full rounded-xl border-2 border-gray-100 bg-white px-4 py-3 text-sm font-medium text-gray-700 shadow-lg shadow-gray-100 outline-none placeholder:text-gray-400 focus:border-[#008C9D] dark:border-white/5 dark:bg-[#0d1117] dark:text-white dark:shadow-none md:w-80 md:rounded-full md:px-6 md:py-4 md:text-base"
             />
             <Search className="absolute top-1/2 right-4 h-4 w-4 -translate-y-1/2 text-gray-400 transition-colors group-focus-within:text-[#008C9D] md:h-5 md:w-5" />
           </div>
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className={`relative rounded-xl p-3 transition-colors md:rounded-full md:p-4 ${showFilters || activeFiltersCount > 0 ? "bg-[#008C9D] text-white" : "border-2 border-gray-100 bg-white text-gray-600"}`}
+            className={`relative rounded-xl p-3 transition-colors md:rounded-full md:p-4 ${showFilters || activeFiltersCount > 0 ? "bg-[#008C9D] text-white" : "border-2 border-gray-100 bg-white text-gray-600 dark:border-white/5 dark:bg-[#0d1117] dark:text-gray-400"}`}
           >
             <Filter size={20} />
             {activeFiltersCount > 0 && (
@@ -235,9 +235,9 @@ export default function JobsList({
       </header>
 
       {showFilters && (
-        <div className="space-y-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm md:p-6">
+        <div className="space-y-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-white/5 dark:bg-[#0d1117] md:p-6">
           <div className="flex items-center justify-between">
-            <h3 className="font-bold text-gray-900">Filter Pekerjaan</h3>
+            <h3 className="font-bold text-gray-900 dark:text-white">Filter Pekerjaan</h3>
             {activeFiltersCount > 0 && (
               <button
                 onClick={clearFilters}
@@ -256,7 +256,7 @@ export default function JobsList({
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none focus:border-[#008C9D] md:text-base"
+                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none focus:border-[#008C9D] dark:border-white/5 dark:bg-slate-800 dark:text-white md:text-base"
               >
                 {sortOptions.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -272,7 +272,7 @@ export default function JobsList({
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value)}
-                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none focus:border-[#008C9D] md:text-base"
+                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none focus:border-[#008C9D] dark:border-white/5 dark:bg-slate-800 dark:text-white md:text-base"
               >
                 {statusOptions.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -288,7 +288,7 @@ export default function JobsList({
               <select
                 value={hoursRange}
                 onChange={(e) => setHoursRange(e.target.value)}
-                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none focus:border-[#008C9D] md:text-base"
+                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none focus:border-[#008C9D] dark:border-white/5 dark:bg-slate-800 dark:text-white md:text-base"
               >
                 {hoursRanges.map((range) => (
                   <option key={range.value} value={range.value}>
@@ -304,7 +304,7 @@ export default function JobsList({
               <select
                 value={selectedSupervisor}
                 onChange={(e) => setSelectedSupervisor(e.target.value)}
-                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none focus:border-[#008C9D] md:text-base"
+                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none focus:border-[#008C9D] dark:border-white/5 dark:bg-slate-800 dark:text-white md:text-base"
               >
                 <option value="">Semua Pengawas</option>
                 {uniqueSupervisors.map((name) => (
@@ -319,9 +319,9 @@ export default function JobsList({
       )}
 
       <div className="flex items-center justify-between">
-        <p className="text-sm text-gray-500 md:text-base">
+        <p className="text-sm text-gray-500 dark:text-gray-400 md:text-base">
           Menampilkan{" "}
-          <span className="font-bold text-gray-900">{filteredJobs.length}</span>{" "}
+          <span className="font-bold text-gray-900 dark:text-white">{filteredJobs.length}</span>{" "}
           dari {jobs.length} pekerjaan
         </p>
       </div>
@@ -351,7 +351,7 @@ export default function JobsList({
             return (
               <article
                 key={job.id}
-                className="group relative overflow-hidden rounded-2xl border border-gray-100 bg-white p-4 shadow-sm transition-all duration-300 hover:border-[#008C9D]/30 hover:shadow-xl md:rounded-3xl md:p-6"
+                className="group relative overflow-hidden rounded-2xl border border-gray-100 bg-white p-4 shadow-sm transition-all duration-300 hover:border-[#008C9D]/30 hover:shadow-xl dark:border-white/5 dark:bg-[#0d1117] dark:shadow-none md:rounded-3xl md:p-6"
               >
                 <div
                   className={`absolute top-0 bottom-0 left-0 w-1.5 md:w-2 ${isOpen ? "bg-[#008C9D]" : "bg-[#CE2029]"}`}
@@ -367,45 +367,45 @@ export default function JobsList({
                       </span>
 
                       {job.createdBy?.name && (
-                        <div className="flex items-center gap-1.5 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-500 md:text-xs">
+                        <div className="flex items-center gap-1.5 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-500 dark:bg-white/5 dark:text-gray-400 md:text-xs">
                           <UserCircle size={12} />
                           {job.createdBy.name}
                         </div>
                       )}
                     </div>
 
-                    <h3 className="text-xl font-bold text-gray-900 transition-colors group-hover:text-[#008C9D] md:text-2xl">
+                    <h3 className="text-xl font-bold text-gray-900 transition-colors group-hover:text-[#008C9D] dark:text-white md:text-2xl">
                       {job.title}
                     </h3>
 
-                    <p className="line-clamp-3 max-w-2xl text-sm leading-relaxed text-gray-500 md:line-clamp-none md:text-base">
+                    <p className="line-clamp-3 max-w-2xl text-sm leading-relaxed text-gray-500 dark:text-gray-400 md:line-clamp-none md:text-base">
                       {job.description}
                     </p>
 
-                    <div className="mt-2 flex max-w-lg flex-wrap gap-4 border-t border-gray-50 pt-4 md:mt-4 md:gap-6">
+                    <div className="mt-2 flex max-w-lg flex-wrap gap-4 border-t border-gray-50 pt-4 dark:border-white/5 md:mt-4 md:gap-6">
                       <div className="flex items-center gap-2">
-                        <div className="rounded-full bg-blue-50 p-1.5 text-blue-600 md:p-2">
+                        <div className="rounded-full bg-blue-50 p-1.5 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400 md:p-2">
                           <Clock size={14} className="md:h-4 md:w-4" />
                         </div>
                         <div>
-                          <p className="text-[10px] font-bold tracking-tighter text-gray-400 uppercase md:text-xs">
+                          <p className="text-[10px] font-bold tracking-tighter text-gray-400 uppercase dark:text-gray-500 md:text-xs">
                             Kompensasi
                           </p>
-                          <p className="text-xs font-bold text-gray-900 md:text-sm">
+                          <p className="text-xs font-bold text-gray-900 dark:text-white md:text-sm">
                             {job.hours} Jam
                           </p>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <div className="rounded-full bg-purple-50 p-1.5 text-purple-600 md:p-2">
+                        <div className="rounded-full bg-purple-50 p-1.5 text-purple-600 dark:bg-purple-500/10 dark:text-purple-400 md:p-2">
                           <Users size={14} className="md:h-4 md:w-4" />
                         </div>
                         <div>
-                          <p className="text-[10px] font-bold tracking-tighter text-gray-400 uppercase md:text-xs">
+                          <p className="text-[10px] font-bold tracking-tighter text-gray-400 uppercase dark:text-gray-500 md:text-xs">
                             Sisa Kuota
                           </p>
-                          <p className="text-xs font-bold text-gray-900 md:text-sm">
+                          <p className="text-xs font-bold text-gray-900 dark:text-white md:text-sm">
                             {job.quota} Mhs
                           </p>
                         </div>
@@ -413,14 +413,14 @@ export default function JobsList({
 
                       {userRole === "MAHASISWA" && (
                         <div className="flex items-center gap-2">
-                          <div className="rounded-full bg-green-50 p-1.5 text-green-600 md:p-2">
+                          <div className="rounded-full bg-green-50 p-1.5 text-green-600 dark:bg-green-500/10 dark:text-green-400 md:p-2">
                             <CheckCircle size={14} className="md:h-4 md:w-4" />
                           </div>
                           <div>
-                            <p className="text-[10px] font-bold tracking-tighter text-gray-400 uppercase md:text-xs">
+                            <p className="text-[10px] font-bold tracking-tighter text-gray-400 uppercase dark:text-gray-500 md:text-xs">
                               Nilai Kompen
                             </p>
-                            <p className="text-xs font-bold text-green-700 md:text-sm">
+                            <p className="text-xs font-bold text-green-700 dark:text-green-400 md:text-sm">
                               -{job.hours} Jam (Rp{" "}
                               {(job.hours * 10000).toLocaleString("id-ID")})
                             </p>
@@ -463,7 +463,7 @@ export default function JobsList({
                         <button
                           onClick={() => handleApplyClick(job.id)}
                           disabled={!isOpen || applyingId === job.id}
-                          className="flex w-full transform items-center justify-center gap-2 rounded-xl bg-gray-900 px-6 py-3 text-sm font-bold text-white shadow-xl shadow-gray-200 transition-all duration-300 hover:bg-[#008C9D] hover:text-white hover:shadow-[#008C9D]/30 active:scale-95 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:opacity-50 disabled:shadow-none md:py-4 md:text-base"
+                          className="flex w-full transform items-center justify-center gap-2 rounded-xl bg-gray-900 px-6 py-3 text-sm font-bold text-white shadow-xl shadow-gray-200 transition-all duration-300 hover:bg-[#008C9D] hover:text-white hover:shadow-[#008C9D]/30 active:scale-95 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:opacity-50 disabled:shadow-none dark:bg-slate-800 dark:shadow-none dark:hover:bg-[#008C9D] md:py-4 md:text-base"
                         >
                           {applyingId === job.id ? (
                             <>
@@ -494,7 +494,7 @@ export default function JobsList({
       </div>
 
       {confirmState.show && (
-        <div className="fixed inset-0 z-[9999] flex animate-[fadeIn_0.2s_ease-out] items-center justify-center bg-black/20 p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-9999 flex animate-[fadeIn_0.2s_ease-out] items-center justify-center bg-black/20 p-4 backdrop-blur-sm">
           <div className="w-full max-w-sm scale-100 animate-[scaleIn_0.2s_ease-out] rounded-3xl border border-gray-100 bg-white p-6 shadow-2xl md:p-8">
             <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-[#F4B41A]/10">
               <AlertTriangle className="h-8 w-8 text-[#F4B41A]" />
@@ -572,7 +572,7 @@ export default function JobsList({
 
           if (totalAppliedHours > 0) {
             return (
-              <div className="animate-in slide-in-from-bottom-4 fixed right-4 bottom-6 left-4 z-40 flex justify-center duration-500 md:absolute md:right-auto md:bottom-8 md:left-1/2 md:left-auto md:w-auto md:-translate-x-1/2 lg:left-72 lg:translate-x-8">
+              <div className="animate-in slide-in-from-bottom-4 fixed right-4 bottom-6 left-4 z-40 flex justify-center duration-500 md:absolute md:right-auto md:bottom-8 md:left-1/2 md:w-auto md:-translate-x-1/2 lg:left-72 lg:translate-x-8">
                 <div className="flex w-full items-center justify-between gap-3 rounded-2xl border border-gray-800 bg-gray-900 px-4 py-3 text-white shadow-2xl md:w-auto md:justify-start md:gap-4 md:rounded-full md:px-6 md:py-4">
                   <div className="flex items-center gap-3 md:gap-4">
                     <div

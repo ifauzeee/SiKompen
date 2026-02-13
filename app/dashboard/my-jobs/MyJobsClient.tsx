@@ -60,10 +60,10 @@ export default function MyJobsClient({
 
       <header className="mb-4 flex flex-col items-start justify-between gap-6 md:flex-row md:items-end">
         <div>
-          <h1 className="mb-2 text-4xl font-black tracking-tight text-gray-900 md:text-5xl">
+          <h1 className="mb-2 text-4xl font-black tracking-tight text-gray-900 dark:text-white md:text-5xl">
             Pekerjaan Saya
           </h1>
-          <p className="text-lg font-medium text-gray-500">
+          <p className="text-lg font-medium text-gray-500 dark:text-gray-400">
             Kelola data lowongan pekerjaan Anda.
           </p>
         </div>
@@ -79,14 +79,14 @@ export default function MyJobsClient({
 
       <div className="grid grid-cols-1 gap-6">
         {jobs.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-[2.5rem] border border-dashed border-gray-200 bg-white py-20">
-            <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gray-50">
-              <Search size={32} className="text-gray-900 opacity-20" />
+          <div className="flex flex-col items-center justify-center rounded-[2.5rem] border border-dashed border-gray-200 bg-white py-20 dark:border-white/5 dark:bg-[#0d1117]">
+            <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gray-50 dark:bg-white/5">
+              <Search size={32} className="text-gray-900 opacity-20 dark:text-white" />
             </div>
-            <h3 className="mb-2 text-xl font-bold text-gray-900">
+            <h3 className="mb-2 text-xl font-bold text-gray-900 dark:text-white">
               Belum ada pekerjaan
             </h3>
-            <p className="max-w-md text-center text-gray-500">
+            <p className="max-w-md text-center text-gray-500 dark:text-gray-400">
               Anda belum membuat lowongan pekerjaan apapun. Mulai buat sekarang
               untuk mendapatkan asisten.
             </p>
@@ -95,24 +95,23 @@ export default function MyJobsClient({
           jobs.map((job) => (
             <div
               key={job.id}
-              className="group relative overflow-hidden rounded-4xl border border-gray-100 bg-white p-8 shadow-lg shadow-gray-100/50 transition-all duration-300 hover:border-[#008C9D]/30"
+              className="group relative overflow-hidden rounded-4xl border border-gray-100 bg-white p-8 shadow-lg shadow-gray-100/50 transition-all duration-300 hover:border-[#008C9D]/30 dark:border-white/5 dark:bg-[#0d1117] dark:shadow-none"
             >
               <div className="absolute top-0 right-0 -mt-10 -mr-10 h-32 w-32 rounded-full bg-linear-to-br from-[#008C9D]/5 to-[#F4B41A]/5 blur-2xl transition-transform duration-700 group-hover:scale-150"></div>
 
               <div className="relative z-10 flex flex-col justify-between gap-8 md:flex-row">
                 <div className="flex-1">
                   <div className="mb-3 flex flex-wrap items-center gap-3">
-                    <h3 className="text-2xl font-bold text-gray-900 transition-colors group-hover:text-[#008C9D]">
+                    <h3 className="text-2xl font-bold text-gray-900 transition-colors group-hover:text-[#008C9D] dark:text-white">
                       {job.title}
                     </h3>
                     <button
                       onClick={() => handleStatusToggle(job.id, job.status)}
                       disabled={!!togglingId}
-                      className={`flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-bold tracking-wide uppercase transition-all hover:scale-105 active:scale-95 ${
-                        job.status === "OPEN"
+                      className={`flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-bold tracking-wide uppercase transition-all hover:scale-105 active:scale-95 ${job.status === "OPEN"
                           ? "border-green-100 bg-green-50 text-green-600 hover:bg-green-100"
                           : "border-gray-200 bg-gray-100 text-gray-500 hover:bg-gray-200"
-                      }`}
+                        }`}
                     >
                       {togglingId === job.id && (
                         <Loader2 size={12} className="animate-spin" />
@@ -120,25 +119,25 @@ export default function MyJobsClient({
                       {job.status === "OPEN" ? "OPEN" : "SELESAI"}
                     </button>
                   </div>
-                  <p className="mb-6 line-clamp-2 max-w-3xl leading-relaxed text-gray-500">
+                  <p className="mb-6 line-clamp-2 max-w-3xl leading-relaxed text-gray-500 dark:text-gray-400">
                     {job.description}
                   </p>
 
                   <div className="flex flex-wrap items-center gap-6 text-sm font-medium text-gray-500">
-                    <div className="flex items-center gap-2 rounded-lg border border-gray-100 bg-gray-50 px-3 py-1.5">
+                    <div className="flex items-center gap-2 rounded-lg border border-gray-100 bg-gray-50 px-3 py-1.5 dark:border-white/5 dark:bg-white/5">
                       <Clock size={16} className="text-[#008C9D]" />
-                      <span>{job.hours} Jam Kompen</span>
+                      <span className="dark:text-gray-300">{job.hours} Jam Kompen</span>
                     </div>
-                    <div className="flex items-center gap-2 rounded-lg border border-gray-100 bg-gray-50 px-3 py-1.5">
+                    <div className="flex items-center gap-2 rounded-lg border border-gray-100 bg-gray-50 px-3 py-1.5 dark:border-white/5 dark:bg-white/5">
                       <Users size={16} className="text-blue-500" />
-                      <span>
+                      <span className="dark:text-gray-300">
                         {job._count ? job._count.applications : 0} Pelamar
                       </span>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 self-start md:self-center md:border-l md:border-gray-200 md:pl-8">
+                <div className="flex items-center gap-3 self-start md:self-center md:border-l md:border-gray-200 md:pl-8 dark:border-gray-800">
                   <Link
                     href={`/dashboard/my-jobs/${job.id}/edit`}
                     className="rounded-xl bg-[#008C9D]/10 p-3 text-[#008C9D] transition-colors hover:bg-[#008C9D]/20"

@@ -108,78 +108,78 @@ export default function FinanceDashboardClient({
       </header>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <div className="group flex flex-col justify-between rounded-[2.5rem] border border-gray-100 bg-white p-6 shadow-xl shadow-gray-100/50 transition-all duration-300 hover:border-green-500/30">
+        <div className="group flex flex-col justify-between rounded-[2.5rem] border border-gray-100 bg-white p-6 shadow-xl shadow-gray-100/50 transition-all duration-300 hover:border-green-500/30 dark:border-white/5 dark:bg-[#0d1117] dark:shadow-none">
           <div className="mb-4 flex items-start justify-between">
-            <div className="rounded-2xl bg-green-100 p-3 text-green-600 transition-transform duration-300 group-hover:scale-110">
+            <div className="rounded-2xl bg-green-100 p-3 text-green-600 transition-transform duration-300 group-hover:scale-110 dark:bg-green-500/10 dark:text-green-500">
               <Wallet size={24} />
             </div>
           </div>
           <div>
-            <p className="text-xs font-bold tracking-wider text-gray-400 uppercase">
+            <p className="text-xs font-bold tracking-wider text-gray-400 uppercase dark:text-gray-500">
               Total Pemasukan
             </p>
-            <h3 className="mt-1 text-2xl font-black text-gray-900">
+            <h3 className="mt-1 text-2xl font-black text-gray-900 dark:text-white">
               Rp {stats.totalIncome.toLocaleString("id-ID")}
             </h3>
           </div>
         </div>
 
-        <div className="group flex flex-col justify-between rounded-[2.5rem] border border-gray-100 bg-white p-6 shadow-xl shadow-gray-100/50 transition-all duration-300 hover:border-orange-500/30">
+        <div className="group flex flex-col justify-between rounded-[2.5rem] border border-gray-100 bg-white p-6 shadow-xl shadow-gray-100/50 transition-all duration-300 hover:border-orange-500/30 dark:border-white/5 dark:bg-[#0d1117] dark:shadow-none">
           <div className="mb-4 flex items-start justify-between">
-            <div className="rounded-2xl bg-orange-100 p-3 text-orange-600 transition-transform duration-300 group-hover:scale-110">
+            <div className="rounded-2xl bg-orange-100 p-3 text-orange-600 transition-transform duration-300 group-hover:scale-110 dark:bg-orange-500/10 dark:text-orange-500">
               <Clock size={24} />
             </div>
-            <span className="flex items-center rounded-lg bg-orange-100 px-2 py-1 text-xs font-bold text-orange-600">
+            <span className="flex items-center rounded-lg bg-orange-100 px-2 py-1 text-xs font-bold text-orange-600 dark:bg-orange-500/10 dark:text-orange-500">
               Pending
             </span>
           </div>
           <div>
-            <p className="text-xs font-bold tracking-wider text-gray-400 uppercase">
+            <p className="text-xs font-bold tracking-wider text-gray-400 uppercase dark:text-gray-500">
               Potensi Pemasukan
             </p>
-            <h3 className="mt-1 text-2xl font-black text-gray-900">
+            <h3 className="mt-1 text-2xl font-black text-gray-900 dark:text-white">
               Rp {stats.pendingIncome.toLocaleString("id-ID")}
             </h3>
           </div>
         </div>
 
-        <div className="group flex flex-col justify-between rounded-[2.5rem] border border-gray-100 bg-white p-6 shadow-xl shadow-gray-100/50 transition-all duration-300 hover:border-red-500/30">
+        <div className="group flex flex-col justify-between rounded-[2.5rem] border border-gray-100 bg-white p-6 shadow-xl shadow-gray-100/50 transition-all duration-300 hover:border-red-500/30 dark:border-white/5 dark:bg-[#0d1117] dark:shadow-none">
           <div className="mb-4 flex items-start justify-between">
-            <div className="rounded-2xl bg-red-100 p-3 text-red-600 transition-transform duration-300 group-hover:scale-110">
+            <div className="rounded-2xl bg-red-100 p-3 text-red-600 transition-transform duration-300 group-hover:scale-110 dark:bg-red-500/10 dark:text-red-500">
               <Users size={24} />
             </div>
           </div>
           <div>
-            <p className="text-xs font-bold tracking-wider text-gray-400 uppercase">
+            <p className="text-xs font-bold tracking-wider text-gray-400 uppercase dark:text-gray-500">
               Mahasiswa Berhutang
             </p>
-            <h3 className="mt-1 text-2xl font-black text-gray-900">
+            <h3 className="mt-1 text-2xl font-black text-gray-900 dark:text-white">
               {stats.totalDebtors}{" "}
-              <span className="text-base font-medium text-gray-400">Orang</span>
+              <span className="text-base font-medium text-gray-400 dark:text-gray-500">Orang</span>
             </h3>
           </div>
         </div>
 
-        <div className="group flex flex-col justify-between rounded-[2.5rem] border border-gray-100 bg-white p-6 shadow-xl shadow-gray-100/50 transition-all duration-300 hover:border-purple-500/30">
+        <div className="group flex flex-col justify-between rounded-[2.5rem] border border-gray-100 bg-white p-6 shadow-xl shadow-gray-100/50 transition-all duration-300 hover:border-purple-500/30 dark:border-white/5 dark:bg-[#0d1117] dark:shadow-none">
           <div className="mb-4 flex items-start justify-between">
-            <div className="rounded-2xl bg-purple-100 p-3 text-purple-600 transition-transform duration-300 group-hover:scale-110">
+            <div className="rounded-2xl bg-purple-100 p-3 text-purple-600 transition-transform duration-300 group-hover:scale-110 dark:bg-purple-500/10 dark:text-purple-500">
               <AlertTriangle size={24} />
             </div>
           </div>
           <div>
-            <p className="text-xs font-bold tracking-wider text-gray-400 uppercase">
+            <p className="text-xs font-bold tracking-wider text-gray-400 uppercase dark:text-gray-500">
               Total Jam Hutang
             </p>
-            <h3 className="mt-1 text-2xl font-black text-gray-900">
+            <h3 className="mt-1 text-2xl font-black text-gray-900 dark:text-white">
               {stats.totalOutstandingHours.toLocaleString("id-ID")}{" "}
-              <span className="text-base font-medium text-gray-400">Jam</span>
+              <span className="text-base font-medium text-gray-400 dark:text-gray-500">Jam</span>
             </h3>
           </div>
         </div>
       </div>
 
       {trendData && trendData.length > 0 && (
-        <div className="rounded-[2.5rem] border border-gray-100 bg-white p-6 shadow-xl shadow-gray-100/50">
+        <div className="rounded-[2.5rem] border border-gray-100 bg-white p-6 shadow-xl shadow-gray-100/50 dark:border-white/5 dark:bg-[#0d1117] dark:shadow-none">
           <TrendChart
             data={trendData}
             color="#F4B41A"
@@ -188,7 +188,7 @@ export default function FinanceDashboardClient({
         </div>
       )}
 
-      <div className="flex w-fit gap-2 rounded-2xl bg-gray-100 p-1">
+      <div className="flex w-fit gap-2 rounded-2xl bg-gray-100 p-1 dark:bg-gray-800">
         {[
           { id: "VERIFY", label: "Verifikasi Pembayaran", icon: Check },
           { id: "HISTORY", label: "Riwayat Transaksi", icon: History },
@@ -199,11 +199,10 @@ export default function FinanceDashboardClient({
             onClick={() =>
               setActiveTab(tab.id as "VERIFY" | "HISTORY" | "DEBTORS")
             }
-            className={`flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-bold transition-all ${
-              activeTab === tab.id
-                ? "bg-white text-gray-900 shadow-sm"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
+            className={`flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-bold transition-all ${activeTab === tab.id
+              ? "bg-white text-gray-900 shadow-sm dark:bg-gray-700 dark:text-white"
+              : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              }`}
           >
             <tab.icon size={16} />
             {tab.label}
@@ -219,14 +218,14 @@ export default function FinanceDashboardClient({
       <div className="min-h-[400px]">
         {activeTab === "VERIFY" &&
           (payments.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-[2.5rem] border border-dashed border-gray-200 bg-white py-20">
-              <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gray-50">
-                <FileText size={32} className="text-gray-900 opacity-20" />
+            <div className="flex flex-col items-center justify-center rounded-[2.5rem] border border-dashed border-gray-200 bg-white py-20 dark:border-white/5 dark:bg-[#0d1117]">
+              <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gray-50 dark:bg-white/5">
+                <FileText size={32} className="text-gray-900 opacity-20 dark:text-white" />
               </div>
-              <h3 className="mb-2 text-xl font-bold text-gray-900">
+              <h3 className="mb-2 text-xl font-bold text-gray-900 dark:text-white">
                 Semua Bersih!
               </h3>
-              <p className="max-w-md text-center text-gray-500">
+              <p className="max-w-md text-center text-gray-500 dark:text-gray-400">
                 Tidak ada pembayaran yang perlu divalidasi saat ini.
               </p>
             </div>
@@ -235,7 +234,7 @@ export default function FinanceDashboardClient({
               {payments.map((payment) => (
                 <div
                   key={payment.id}
-                  className="animate-in slide-in-from-bottom-4 flex flex-col items-start gap-6 rounded-3xl border border-gray-100 bg-white p-6 shadow-sm lg:flex-row lg:items-center"
+                  className="animate-in slide-in-from-bottom-4 flex flex-col items-start gap-6 rounded-3xl border border-gray-100 bg-white p-6 shadow-sm dark:border-white/5 dark:bg-[#0d1117] lg:flex-row lg:items-center"
                 >
                   <div className="flex-1 space-y-1">
                     <div className="mb-2 flex items-center gap-3">
@@ -254,12 +253,12 @@ export default function FinanceDashboardClient({
                         )}
                       </span>
                     </div>
-                    <h3 className="text-xl font-bold text-gray-900">
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white">
                       {payment.user.name}
                     </h3>
-                    <div className="flex items-center gap-4 text-sm text-gray-500">
+                    <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
                       <span>{payment.user.nim}</span>
-                      <span className="h-1 w-1 rounded-full bg-gray-300"></span>
+                      <span className="h-1 w-1 rounded-full bg-gray-300 dark:bg-gray-700"></span>
                       <span>{payment.user.kelas}</span>
                     </div>
                     <div className="mt-4 flex flex-wrap gap-4">
@@ -267,7 +266,7 @@ export default function FinanceDashboardClient({
                         <div className="text-xs font-bold text-gray-400 uppercase">
                           Bayar
                         </div>
-                        <div className="font-bold text-gray-900">
+                        <div className="font-bold text-gray-900 dark:text-white">
                           Rp {payment.amount.toLocaleString("id-ID")}
                         </div>
                       </div>
@@ -301,7 +300,7 @@ export default function FinanceDashboardClient({
                       </button>
                       <button
                         onClick={() => handleAction(payment.id, "APPROVED")}
-                        className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gray-900 px-6 py-3 font-bold text-white transition-colors hover:bg-gray-800 lg:flex-none"
+                        className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gray-900 px-6 py-3 font-bold text-white transition-colors hover:bg-black dark:bg-[#008C9D] dark:hover:bg-[#007A8A] lg:flex-none"
                       >
                         <Check size={18} />
                         <span>Setujui</span>
@@ -314,9 +313,9 @@ export default function FinanceDashboardClient({
           ))}
 
         {activeTab === "HISTORY" && (
-          <div className="overflow-hidden rounded-[2.5rem] border border-gray-100 bg-white shadow-xl shadow-gray-100/50">
+          <div className="overflow-hidden rounded-[2.5rem] border border-gray-100 bg-white shadow-xl shadow-gray-100/50 dark:border-white/5 dark:bg-[#0d1117] dark:shadow-none">
             <table className="w-full text-left">
-              <thead className="border-b border-gray-100 bg-gray-50">
+              <thead className="border-b border-gray-100 bg-gray-50 dark:border-white/5 dark:bg-white/5">
                 <tr>
                   <th className="p-6 text-xs font-bold tracking-wider text-gray-400 uppercase">
                     ID
@@ -335,38 +334,37 @@ export default function FinanceDashboardClient({
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-gray-100 dark:divide-white/5">
                 {history.map((tx) => (
                   <tr
                     key={tx.id}
-                    className="group transition-colors hover:bg-gray-50"
+                    className="group transition-colors hover:bg-gray-50 dark:hover:bg-white/5"
                   >
-                    <td className="p-6 text-sm font-bold text-gray-500">
+                    <td className="p-6 text-sm font-bold text-gray-500 dark:text-gray-400">
                       #{tx.id}
                     </td>
                     <td className="p-6">
-                      <div className="font-bold text-gray-900">
+                      <div className="font-bold text-gray-900 dark:text-white">
                         {tx.user.name}
                       </div>
-                      <div className="text-xs text-gray-400">{tx.user.nim}</div>
+                      <div className="text-xs text-gray-400 dark:text-gray-500">{tx.user.nim}</div>
                     </td>
-                    <td className="p-6 font-mono font-bold text-gray-900">
+                    <td className="p-6 font-mono font-bold text-gray-900 dark:text-white">
                       Rp {tx.amount.toLocaleString("id-ID")}
                     </td>
                     <td className="p-6">
                       <span
-                        className={`rounded-full border px-3 py-1 text-xs font-bold ${
-                          tx.status === "APPROVED"
-                            ? "border-green-100 bg-green-50 text-green-700"
-                            : tx.status === "REJECTED"
-                              ? "border-red-100 bg-red-50 text-red-700"
-                              : "border-gray-200 bg-gray-100 text-gray-600"
-                        }`}
+                        className={`rounded-full border px-3 py-1 text-xs font-bold ${tx.status === "APPROVED"
+                          ? "border-green-100 bg-green-50 text-green-700"
+                          : tx.status === "REJECTED"
+                            ? "border-red-100 bg-red-50 text-red-700"
+                            : "border-gray-200 bg-gray-100 text-gray-600"
+                          }`}
                       >
                         {tx.status}
                       </span>
                     </td>
-                    <td className="p-6 text-sm text-gray-500">
+                    <td className="p-6 text-sm text-gray-500 dark:text-gray-400">
                       {new Date(tx.createdAt).toLocaleDateString("id-ID")}
                     </td>
                   </tr>
@@ -384,9 +382,9 @@ export default function FinanceDashboardClient({
         )}
 
         {activeTab === "DEBTORS" && (
-          <div className="overflow-hidden rounded-[2.5rem] border border-gray-100 bg-white shadow-xl shadow-gray-100/50">
+          <div className="overflow-hidden rounded-[2.5rem] border border-gray-100 bg-white shadow-xl shadow-gray-100/50 dark:border-white/5 dark:bg-[#0d1117] dark:shadow-none">
             <table className="w-full text-left">
-              <thead className="border-b border-gray-100 bg-gray-50">
+              <thead className="border-b border-gray-100 bg-gray-50 dark:border-white/5 dark:bg-white/5">
                 <tr>
                   <th className="p-6 text-xs font-bold tracking-wider text-gray-400 uppercase">
                     Mahasiswa
@@ -399,17 +397,17 @@ export default function FinanceDashboardClient({
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-gray-100 dark:divide-white/5">
                 {debtors.map((mhs) => (
                   <tr
                     key={mhs.id}
-                    className="group transition-colors hover:bg-gray-50"
+                    className="group transition-colors hover:bg-gray-50 dark:hover:bg-white/5"
                   >
                     <td className="p-6">
-                      <div className="font-bold text-gray-900">{mhs.name}</div>
-                      <div className="text-xs text-gray-400">{mhs.nim}</div>
+                      <div className="font-bold text-gray-900 dark:text-white">{mhs.name}</div>
+                      <div className="text-xs text-gray-400 dark:text-gray-500">{mhs.nim}</div>
                     </td>
-                    <td className="p-6 text-sm font-bold text-gray-500">
+                    <td className="p-6 text-sm font-bold text-gray-500 dark:text-gray-400">
                       {mhs.kelas || "-"}
                     </td>
                     <td className="p-6 text-right">
@@ -438,20 +436,20 @@ export default function FinanceDashboardClient({
           onClick={() => setSelectedProof(null)}
         >
           <div
-            className="animate-in zoom-in-95 relative flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl duration-200"
+            className="animate-in zoom-in-95 relative flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl duration-200 dark:bg-[#0d1117]"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-gray-100 p-4">
-              <h3 className="font-bold text-gray-900">Bukti Pembayaran</h3>
+            <div className="flex items-center justify-between border-b border-gray-100 p-4 dark:border-white/5">
+              <h3 className="font-bold text-gray-900 dark:text-white">Bukti Pembayaran</h3>
               <button
                 onClick={() => setSelectedProof(null)}
-                className="rounded-full bg-gray-100 p-2 text-gray-600 transition-colors hover:bg-gray-200"
+                className="rounded-full bg-gray-100 p-2 text-gray-600 transition-colors hover:bg-gray-200 dark:bg-white/10 dark:text-gray-400 dark:hover:bg-white/20"
               >
                 <X size={20} />
               </button>
             </div>
 
-            <div className="relative flex min-h-[300px] flex-1 items-center justify-center overflow-auto bg-gray-50 p-4">
+            <div className="relative flex min-h-[300px] flex-1 items-center justify-center overflow-auto bg-gray-50 p-4 dark:bg-black/20">
               <img
                 src={selectedProof}
                 alt="Bukti Pembayaran"
@@ -471,10 +469,10 @@ export default function FinanceDashboardClient({
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 border-t border-gray-100 bg-white p-4">
+            <div className="flex justify-end gap-3 border-t border-gray-100 bg-white p-4 dark:border-white/5 dark:bg-[#0d1117]">
               <button
                 onClick={() => setSelectedProof(null)}
-                className="rounded-xl px-4 py-2 font-bold text-gray-600 transition-colors hover:bg-gray-50"
+                className="rounded-xl px-4 py-2 font-bold text-gray-600 transition-colors hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-white/5"
               >
                 Tutup
               </button>

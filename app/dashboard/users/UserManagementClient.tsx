@@ -157,10 +157,10 @@ export default function UserManagementClient({ users }: { users: User[] }) {
 
       <header className="mb-4 flex flex-col items-start justify-between gap-6 md:flex-row md:items-end">
         <div>
-          <h1 className="mb-2 text-4xl font-black tracking-tight text-gray-900 md:text-5xl">
+          <h1 className="mb-2 text-4xl font-black tracking-tight text-gray-900 dark:text-white md:text-5xl">
             Data Pengguna
           </h1>
-          <p className="text-lg font-medium text-gray-500">
+          <p className="text-lg font-medium text-gray-500 dark:text-gray-400">
             Kelola akun Admin, Pengawas, dan Mahasiswa.
           </p>
         </div>
@@ -177,7 +177,7 @@ export default function UserManagementClient({ users }: { users: User[] }) {
         <div className="mb-6 flex flex-wrap items-center gap-2 text-sm">
           <Link
             href="/dashboard/users"
-            className="font-medium text-gray-500 hover:text-gray-900"
+            className="font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
           >
             Semua Role
           </Link>
@@ -186,7 +186,7 @@ export default function UserManagementClient({ users }: { users: User[] }) {
               <ChevronRight size={16} className="text-gray-400" />
               <Link
                 href={`/dashboard/users?role=${selectedRole}`}
-                className={`font-medium ${selectedProdi || selectedKelas ? "text-gray-500 hover:text-gray-900" : "text-gray-900"}`}
+                className={`font-medium ${selectedProdi || selectedKelas ? "text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white" : "text-gray-900 dark:text-white"}`}
               >
                 {selectedRole}
               </Link>
@@ -197,7 +197,7 @@ export default function UserManagementClient({ users }: { users: User[] }) {
               <ChevronRight size={16} className="text-gray-400" />
               <Link
                 href={`/dashboard/users?role=MAHASISWA&prodi=${encodeURIComponent(selectedProdi)}`}
-                className={`font-medium ${selectedKelas ? "text-gray-500 hover:text-gray-900" : "text-gray-900"}`}
+                className={`font-medium ${selectedKelas ? "text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white" : "text-gray-900 dark:text-white"}`}
               >
                 {selectedProdi}
               </Link>
@@ -206,7 +206,7 @@ export default function UserManagementClient({ users }: { users: User[] }) {
           {selectedKelas && (
             <>
               <ChevronRight size={16} className="text-gray-400" />
-              <span className="font-bold text-gray-900">{selectedKelas}</span>
+              <span className="font-bold text-gray-900 dark:text-white">{selectedKelas}</span>
             </>
           )}
         </div>
@@ -215,7 +215,7 @@ export default function UserManagementClient({ users }: { users: User[] }) {
       {currentLevel !== "role" && (
         <button
           onClick={handleBack}
-          className="mb-6 flex items-center gap-2 font-medium text-gray-500 hover:text-gray-900"
+          className="mb-6 flex items-center gap-2 font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
         >
           <ArrowLeft size={18} />
           Kembali
@@ -228,7 +228,7 @@ export default function UserManagementClient({ users }: { users: User[] }) {
             <button
               key={role}
               onClick={() => handleRoleClick(role)}
-              className={`rounded-2xl border-2 p-8 ${roleColors[role]} group text-left transition-all`}
+              className={`rounded-2xl border-2 p-8 ${roleColors[role]} group text-left transition-all dark:border-white/5 dark:bg-[#0d1117] dark:hover:border-[#008C9D]/50`}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
@@ -239,12 +239,12 @@ export default function UserManagementClient({ users }: { users: User[] }) {
                   </div>
                   <div>
                     <h3
-                      className={`text-xl font-bold ${role === "ADMIN" ? "text-white" : "text-gray-900"}`}
+                      className={`text-xl font-bold ${role === "ADMIN" ? "text-white" : "text-gray-900 dark:text-white"}`}
                     >
                       {role}
                     </h3>
                     <p
-                      className={`${role === "ADMIN" ? "text-white/80" : "text-gray-500"}`}
+                      className={`${role === "ADMIN" ? "text-white/80" : "text-gray-500 dark:text-gray-400"}`}
                     >
                       {getRoleCount(role)} pengguna
                     </p>
@@ -266,7 +266,7 @@ export default function UserManagementClient({ users }: { users: User[] }) {
             <button
               key={prodi}
               onClick={() => handleProdiClick(prodi!)}
-              className="group rounded-2xl border-2 border-gray-100 bg-white p-6 text-left transition-all hover:border-green-300"
+              className="group rounded-2xl border-2 border-gray-100 bg-white p-6 text-left transition-all hover:border-green-300 dark:border-white/5 dark:bg-[#0d1117] dark:hover:border-green-500/50"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
@@ -274,8 +274,8 @@ export default function UserManagementClient({ users }: { users: User[] }) {
                     <Building size={20} className="text-green-500" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-900">{prodi}</h3>
-                    <p className="text-sm text-gray-500">
+                    <h3 className="font-bold text-gray-900 dark:text-white">{prodi}</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
                       {getProdiCount(prodi!)} mahasiswa
                     </p>
                   </div>
@@ -296,7 +296,7 @@ export default function UserManagementClient({ users }: { users: User[] }) {
             <button
               key={kelas}
               onClick={() => handleKelasClick(kelas!)}
-              className="group rounded-2xl border-2 border-gray-100 bg-white p-6 text-left transition-all hover:border-green-300"
+              className="group rounded-2xl border-2 border-gray-100 bg-white p-6 text-left transition-all hover:border-green-300 dark:border-white/5 dark:bg-[#0d1117] dark:hover:border-green-500/50"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
@@ -304,8 +304,8 @@ export default function UserManagementClient({ users }: { users: User[] }) {
                     <BookOpen size={20} className="text-green-500" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-900">{kelas}</h3>
-                    <p className="text-sm text-gray-500">
+                    <h3 className="font-bold text-gray-900 dark:text-white">{kelas}</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
                       {getKelasCount(kelas!)} mahasiswa
                     </p>
                   </div>
@@ -322,18 +322,18 @@ export default function UserManagementClient({ users }: { users: User[] }) {
 
       {currentLevel === "users" && (
         <>
-          <div className="mb-6 flex items-center gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+          <div className="mb-6 flex items-center gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-white/5 dark:bg-[#0d1117]">
             <Search size={20} className="text-gray-400" />
             <input
               placeholder="Cari nama atau NIM..."
-              className="flex-1 font-medium text-gray-700 outline-none placeholder:text-gray-400"
+              className="flex-1 font-medium text-gray-700 outline-none placeholder:text-gray-400 dark:bg-transparent dark:text-white"
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
 
-          <div className="overflow-hidden overflow-x-auto rounded-4xl border border-gray-100 bg-white shadow-sm">
+          <div className="overflow-hidden overflow-x-auto rounded-4xl border border-gray-100 bg-white shadow-sm dark:border-white/5 dark:bg-[#0d1117] dark:shadow-none">
             <table className="w-full text-left">
-              <thead className="border-b border-gray-100 bg-gray-50">
+              <thead className="border-b border-gray-100 bg-gray-50 dark:border-white/5 dark:bg-white/5">
                 <tr>
                   <th className="p-6 text-sm font-bold text-gray-500">USER</th>
                   <th className="p-6 text-sm font-bold text-gray-500">ROLE</th>
@@ -345,7 +345,7 @@ export default function UserManagementClient({ users }: { users: User[] }) {
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
+              <tbody className="divide-y divide-gray-50 dark:divide-white/5">
                 {getCurrentUsers()
                   .filter(
                     (u) =>
@@ -368,7 +368,7 @@ export default function UserManagementClient({ users }: { users: User[] }) {
                             {user.name?.[0]?.toUpperCase() || "?"}
                           </div>
                           <div>
-                            <p className="font-bold text-gray-900">
+                            <p className="font-bold text-gray-900 dark:text-white">
                               {user.name}
                             </p>
                             {user.role === "ADMIN" && (
@@ -381,15 +381,14 @@ export default function UserManagementClient({ users }: { users: User[] }) {
                       </td>
                       <td className="p-6">
                         <span
-                          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold ${
-                            user.role === "ADMIN"
+                          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold ${user.role === "ADMIN"
                               ? "border-[#008C9D]/20 bg-[#008C9D]/10 text-[#008C9D]"
                               : user.role === "PENGAWAS"
                                 ? "border-blue-100 bg-blue-50 text-blue-600"
                                 : user.role === "KEUANGAN"
                                   ? "border-purple-100 bg-purple-50 text-purple-600"
                                   : "border-red-100 bg-red-50 text-[#CE2029]"
-                          }`}
+                            }`}
                         >
                           {user.role === "ADMIN" && <Shield size={12} />}
                           {user.role === "PENGAWAS" && <UserIcon size={12} />}
@@ -403,13 +402,13 @@ export default function UserManagementClient({ users }: { users: User[] }) {
                       <td className="p-6">
                         {user.role === "MAHASISWA" ? (
                           <div>
-                            <p className="text-sm font-medium text-gray-600">
+                            <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
                               NIM: {user.nim || "-"}
                             </p>
-                            <p className="text-xs text-gray-400">
+                            <p className="text-xs text-gray-400 dark:text-gray-500">
                               {user.kelas}
                             </p>
-                            <p className="text-xs font-bold text-red-500">
+                            <p className="text-xs font-bold text-red-500 dark:text-red-400">
                               Hutang: {user.totalHours} Jam
                             </p>
                           </div>

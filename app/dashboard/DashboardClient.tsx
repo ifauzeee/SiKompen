@@ -166,7 +166,7 @@ export default function DashboardClient({
           </div>
         </div>
 
-        <div className="bento-item group col-span-1 flex flex-col justify-between rounded-4xl border border-gray-100 bg-white p-6 shadow-xl shadow-gray-100/50 transition-colors duration-300 hover:border-[#CE2029]/30 md:col-span-1 md:rounded-[2.5rem] dark:border-gray-800 dark:bg-gray-900 dark:shadow-none dark:hover:border-[#CE2029]/50">
+        <div className="bento-item group col-span-1 flex flex-col justify-between rounded-4xl border border-gray-100 bg-white p-6 shadow-xl shadow-gray-200/50 transition-colors duration-300 hover:border-[#CE2029]/30 md:col-span-1 md:rounded-[2.5rem] dark:border-white/5 dark:bg-[#0d1117] dark:shadow-none dark:hover:border-[#CE2029]/50">
           <div>
             <div className="mb-4 flex items-start justify-between">
               <div className="rounded-2xl bg-[#CE2029]/10 p-3 text-[#CE2029] transition-transform duration-300 group-hover:scale-110">
@@ -196,7 +196,7 @@ export default function DashboardClient({
           </div>
         </div>
 
-        <div className="bento-item group col-span-1 flex flex-col justify-between rounded-4xl border border-gray-100 bg-white p-6 shadow-xl shadow-gray-100/50 transition-colors duration-300 hover:border-[#F4B41A]/30 md:col-span-1 md:rounded-[2.5rem] dark:border-gray-800 dark:bg-gray-900 dark:shadow-none dark:hover:border-[#F4B41A]/50">
+        <div className="bento-item group col-span-1 flex flex-col justify-between rounded-4xl border border-gray-100 bg-white p-6 shadow-xl shadow-gray-200/50 transition-colors duration-300 hover:border-[#F4B41A]/30 md:col-span-1 md:rounded-[2.5rem] dark:border-white/5 dark:bg-[#0d1117] dark:shadow-none dark:hover:border-[#F4B41A]/50">
           <div>
             <div className="mb-4 flex items-start justify-between">
               <div className="rounded-2xl bg-[#F4B41A]/10 p-3 text-[#F4B41A] transition-transform duration-300 group-hover:scale-110">
@@ -218,7 +218,7 @@ export default function DashboardClient({
           </div>
         </div>
 
-        <div className="bento-item group relative col-span-1 flex flex-col justify-between overflow-hidden rounded-4xl border border-gray-100 bg-white p-6 shadow-xl shadow-gray-100/50 md:col-span-2 md:rounded-[2.5rem] md:p-8 lg:col-span-2 dark:border-gray-800 dark:bg-gray-900 dark:shadow-none">
+        <div className="bento-item group relative col-span-1 flex flex-col justify-between overflow-hidden rounded-4xl border border-gray-100 bg-white p-6 shadow-xl shadow-gray-200/50 md:col-span-2 md:rounded-[2.5rem] md:p-8 lg:col-span-2 dark:border-white/5 dark:bg-[#0d1117] dark:shadow-none">
           <div className="pointer-events-none absolute top-0 right-0 h-[300px] w-[300px] translate-x-1/2 -translate-y-1/2 rounded-full bg-red-500/5 blur-[80px]" />
 
           <div>
@@ -265,7 +265,7 @@ export default function DashboardClient({
           </div>
         </div>
 
-        <div className="bento-item col-span-1 flex h-full flex-col overflow-hidden rounded-4xl border border-gray-100 bg-white p-6 shadow-xl shadow-gray-100/50 md:col-span-1 md:rounded-[2.5rem] md:p-8 lg:col-span-2 dark:border-gray-800 dark:bg-gray-900 dark:shadow-none">
+        <div className="bento-item col-span-1 flex h-full flex-col overflow-hidden rounded-4xl border border-gray-100 bg-white p-6 shadow-xl shadow-gray-200/50 md:col-span-1 md:rounded-[2.5rem] md:p-8 lg:col-span-2 dark:border-white/5 dark:bg-[#0d1117] dark:shadow-none">
           <h3 className="mb-6 flex items-center gap-2 text-base font-bold text-gray-900 md:text-lg dark:text-white">
             <Clock className="h-5 w-5 text-[#008C9D]" />
             Aktivitas Terbaru
@@ -279,13 +279,12 @@ export default function DashboardClient({
                   className="group relative border-l border-gray-100 pb-6 pl-6 last:border-0 last:pb-0 dark:border-gray-800"
                 >
                   <div
-                    className={`absolute top-0 -left-[9px] h-4 w-4 rounded-full border-2 border-white transition-colors duration-300 dark:border-gray-900 ${
-                      act.type === "APPROVED"
-                        ? "bg-[#008C9D] shadow-[0_0_0_4px_rgba(0,140,157,0.2)] group-hover:bg-[#007A8A]"
-                        : act.type === "WARNING"
-                          ? "bg-[#CE2029] shadow-[0_0_0_4px_rgba(206,32,41,0.2)] group-hover:bg-[#B01B23]"
-                          : "bg-[#F4B41A] shadow-[0_0_0_4px_rgba(244,180,26,0.2)] group-hover:bg-[#D49B15]"
-                    }`}
+                    className={`absolute top-0 -left-[9px] h-4 w-4 rounded-full border-2 border-white transition-colors duration-300 dark:border-gray-900 ${act.type === "APPROVED"
+                      ? "bg-[#008C9D] shadow-[0_0_0_4px_rgba(0,140,157,0.2)] group-hover:bg-[#007A8A]"
+                      : act.type === "WARNING"
+                        ? "bg-[#CE2029] shadow-[0_0_0_4px_rgba(206,32,41,0.2)] group-hover:bg-[#B01B23]"
+                        : "bg-[#F4B41A] shadow-[0_0_0_4px_rgba(244,180,26,0.2)] group-hover:bg-[#D49B15]"
+                      }`}
                   />
 
                   <div className="mb-1 flex items-start justify-between gap-4">
@@ -310,7 +309,7 @@ export default function DashboardClient({
           </div>
         </div>
 
-        <div className="bento-item group col-span-1 flex h-full flex-col justify-between overflow-hidden rounded-4xl border border-gray-100 bg-white p-6 shadow-xl shadow-gray-100/50 transition-colors hover:border-[#008C9D]/30 md:col-span-1 md:rounded-[2.5rem] md:p-8 lg:col-span-2 dark:border-gray-800 dark:bg-gray-900 dark:shadow-none dark:hover:border-[#008C9D]/50">
+        <div className="bento-item group col-span-1 flex h-full flex-col justify-between overflow-hidden rounded-4xl border border-gray-100 bg-white p-6 shadow-xl shadow-gray-200/50 transition-colors hover:border-[#008C9D]/30 md:col-span-1 md:rounded-[2.5rem] md:p-8 lg:col-span-2 dark:border-white/5 dark:bg-[#0d1117] dark:shadow-none dark:hover:border-[#008C9D]/50">
           <div className="mb-6 flex items-start justify-between">
             <div className="rounded-2xl bg-[#008C9D]/10 p-3 text-[#008C9D] transition-transform duration-300 group-hover:scale-110">
               <Briefcase className="h-6 w-6" />

@@ -42,17 +42,17 @@ export default function ProfileClient() {
     <div className="mx-auto min-h-screen max-w-[1600px] space-y-8 px-4 pt-8 pb-12 sm:px-8">
       <header className="mb-4 flex flex-col items-start justify-between gap-6 md:flex-row md:items-end">
         <div>
-          <h1 className="mb-2 text-3xl font-black tracking-tight text-gray-900 md:text-5xl">
+          <h1 className="mb-2 text-3xl font-black tracking-tight text-gray-900 dark:text-white md:text-5xl">
             Profil Saya
           </h1>
-          <p className="text-sm font-medium text-gray-500 md:text-lg">
+          <p className="text-sm font-medium text-gray-500 dark:text-gray-400 md:text-lg">
             Kelola informasi akun dan keamanan Anda.
           </p>
         </div>
       </header>
 
-      <div className="rounded-[1.5rem] border border-gray-100 bg-white p-4 shadow-sm md:rounded-[2.5rem] md:p-8">
-        <h2 className="mb-6 flex items-center gap-2 text-xl font-bold text-gray-900">
+      <div className="rounded-3xl border border-gray-100 bg-white p-4 shadow-sm dark:border-white/5 dark:bg-[#0d1117] dark:shadow-none md:rounded-[2.5rem] md:p-8">
+        <h2 className="mb-6 flex items-center gap-2 text-xl font-bold text-gray-900 dark:text-white">
           <Lock className="text-[#008C9D]" size={24} />
           Ubah Password
         </h2>
@@ -73,7 +73,7 @@ export default function ProfileClient() {
 
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <div className="space-y-2">
-              <label className="block text-sm font-bold text-gray-700">
+              <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
                 Password Lama
               </label>
               <input
@@ -82,12 +82,12 @@ export default function ProfileClient() {
                 onChange={(e) => setCurrentPassword(e.target.value)}
                 required
                 placeholder="Masukkan password saat ini"
-                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm transition-all outline-none placeholder:text-gray-400 focus:border-[#008C9D] focus:bg-white focus:ring-4 focus:ring-[#008C9D]/10 md:text-base"
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm transition-all outline-none placeholder:text-gray-400 focus:border-[#008C9D] focus:bg-white focus:ring-4 focus:ring-[#008C9D]/10 dark:border-white/5 dark:bg-white/5 dark:text-white dark:focus:bg-[#0d1117] md:text-base text-gray-900"
               />
             </div>
 
             <div className="space-y-2">
-              <label className="block text-sm font-bold text-gray-700">
+              <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
                 Password Baru
               </label>
               <input
@@ -97,12 +97,12 @@ export default function ProfileClient() {
                 required
                 minLength={6}
                 placeholder="Minimal 6 karakter"
-                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm transition-all outline-none placeholder:text-gray-400 focus:border-[#008C9D] focus:bg-white focus:ring-4 focus:ring-[#008C9D]/10 md:text-base"
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm transition-all outline-none placeholder:text-gray-400 focus:border-[#008C9D] focus:bg-white focus:ring-4 focus:ring-[#008C9D]/10 dark:border-white/5 dark:bg-white/5 dark:text-white dark:focus:bg-[#0d1117] md:text-base text-gray-900"
               />
             </div>
 
             <div className="space-y-2">
-              <label className="block text-sm font-bold text-gray-700">
+              <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
                 Konfirmasi Password
               </label>
               <input
@@ -112,7 +112,7 @@ export default function ProfileClient() {
                 required
                 minLength={6}
                 placeholder="Ulangi password baru"
-                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm transition-all outline-none placeholder:text-gray-400 focus:border-[#008C9D] focus:bg-white focus:ring-4 focus:ring-[#008C9D]/10 md:text-base"
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm transition-all outline-none placeholder:text-gray-400 focus:border-[#008C9D] focus:bg-white focus:ring-4 focus:ring-[#008C9D]/10 dark:border-white/5 dark:bg-white/5 dark:text-white dark:focus:bg-[#0d1117] md:text-base text-gray-900"
               />
             </div>
           </div>

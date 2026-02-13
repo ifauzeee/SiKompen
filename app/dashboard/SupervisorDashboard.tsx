@@ -36,20 +36,19 @@ interface SupervisorDashboardProps {
 }
 
 export default function SupervisorDashboard({
-  user: _user,
   stats,
   applications,
   acceptedApplications,
   verifyingApplications,
 }: SupervisorDashboardProps) {
   return (
-    <div className="mx-auto min-h-screen max-w-[1600px] space-y-8 px-4 pt-8 pb-12 sm:px-8">
+    <div className="mx-auto min-h-screen max-w-[1600px] space-y-8 px-4 pt-8 pb-12 sm:px-8 dark:bg-slate-950">
       <header className="mb-4 flex flex-col items-start justify-between gap-6 md:flex-row md:items-end">
         <div>
-          <h1 className="mb-2 text-3xl font-black tracking-tight text-gray-900 md:text-5xl">
+          <h1 className="mb-2 text-3xl font-black tracking-tight text-gray-900 dark:text-white md:text-5xl">
             Portal Pengawas
           </h1>
-          <p className="text-sm font-medium text-gray-500 md:text-lg">
+          <p className="text-sm font-medium text-gray-500 dark:text-gray-400 md:text-lg">
             Kelola pekerjaan dan validasi mahasiswa Anda.
           </p>
         </div>
@@ -66,27 +65,27 @@ export default function SupervisorDashboard({
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
         <Link
           href="/dashboard/my-jobs"
-          className="group flex h-full flex-col justify-between rounded-[2rem] border border-gray-100 bg-white p-6 shadow-xl shadow-gray-100/50 transition-all duration-300 hover:border-[#008C9D]/30 md:rounded-[2.5rem] md:p-8"
+          className="group flex h-full flex-col justify-between rounded-4xl border border-gray-200 bg-white p-6 shadow-xl shadow-gray-200/50 transition-all duration-300 hover:scale-[1.02] dark:border-white/5 dark:bg-[#0d1117] dark:shadow-none md:rounded-[2.5rem] md:p-8"
         >
           <div className="mb-6 flex items-start justify-between">
-            <div className="rounded-2xl bg-[#008C9D]/10 p-4 text-[#008C9D] transition-transform duration-300 group-hover:scale-110">
+            <div className="rounded-2xl bg-[#008C9D]/10 p-4 text-[#008C9D] transition-transform duration-300 group-hover:scale-110 dark:bg-[#008C9D]/20">
               <Briefcase size={28} />
             </div>
-            <span className="flex items-center rounded-lg bg-[#008C9D]/10 px-3 py-1 text-xs font-bold text-[#008C9D]">
+            <span className="flex items-center rounded-lg bg-[#008C9D]/10 px-3 py-1 text-xs font-bold text-[#008C9D] dark:bg-[#008C9D]/20">
               Kelola
             </span>
           </div>
           <div>
-            <p className="text-xs font-bold tracking-wider text-gray-400 uppercase">
+            <p className="text-xs font-bold tracking-wider text-gray-400 uppercase dark:text-gray-500">
               Pekerjaan Saya
             </p>
-            <h3 className="mt-2 text-4xl font-black text-gray-900 md:text-5xl">
+            <h3 className="mt-2 text-4xl font-black text-gray-900 dark:text-white md:text-5xl">
               {stats?.myJobs || 0}
             </h3>
           </div>
         </Link>
 
-        <div className="group flex h-full flex-col justify-between rounded-[2rem] border border-gray-100 bg-white p-6 shadow-xl shadow-gray-100/50 transition-all duration-300 hover:border-[#F4B41A]/30 md:rounded-[2.5rem] md:p-8">
+        <div className="group flex h-full flex-col justify-between rounded-4xl border border-gray-200 bg-white p-6 shadow-xl shadow-gray-200/50 transition-all duration-300 hover:scale-[1.02] dark:border-white/5 dark:bg-[#0d1117] dark:shadow-none md:rounded-[2.5rem] md:p-8">
           <div className="mb-6 flex items-start justify-between">
             <div className="rounded-2xl bg-[#F4B41A]/10 p-4 text-[#F4B41A] transition-transform duration-300 group-hover:scale-110">
               <FileCheck size={28} />
@@ -98,16 +97,16 @@ export default function SupervisorDashboard({
             ) : null}
           </div>
           <div>
-            <p className="text-xs font-bold tracking-wider text-gray-400 uppercase">
+            <p className="text-xs font-bold tracking-wider text-gray-400 uppercase dark:text-gray-500">
               Menunggu Validasi
             </p>
-            <h3 className="mt-2 text-4xl font-black text-gray-900 md:text-5xl">
+            <h3 className="mt-2 text-4xl font-black text-gray-900 dark:text-white md:text-5xl">
               {stats?.pendingValidations || 0}
             </h3>
           </div>
         </div>
 
-        <div className="group flex h-full flex-col justify-between rounded-[2rem] border border-gray-100 bg-white p-6 shadow-xl shadow-gray-100/50 transition-all duration-300 hover:border-purple-300 md:rounded-[2.5rem] md:p-8">
+        <div className="group flex h-full flex-col justify-between rounded-4xl border border-gray-200 bg-white p-6 shadow-xl shadow-gray-200/50 transition-all duration-300 hover:scale-[1.02] dark:border-white/5 dark:bg-[#0d1117] dark:shadow-none md:rounded-[2.5rem] md:p-8">
           <div className="mb-6 flex items-start justify-between">
             <div className="rounded-2xl bg-purple-100 p-4 text-purple-600 transition-transform duration-300 group-hover:scale-110">
               <FileCheck size={28} />
@@ -119,16 +118,16 @@ export default function SupervisorDashboard({
             ) : null}
           </div>
           <div>
-            <p className="text-xs font-bold tracking-wider text-gray-400 uppercase">
+            <p className="text-xs font-bold tracking-wider text-gray-400 uppercase dark:text-gray-500">
               Verifikasi Bukti
             </p>
-            <h3 className="mt-2 text-4xl font-black text-gray-900 md:text-5xl">
+            <h3 className="mt-2 text-4xl font-black text-gray-900 dark:text-white md:text-5xl">
               {stats?.verifyingCount || 0}
             </h3>
           </div>
         </div>
 
-        <div className="group relative flex h-full flex-col justify-between overflow-hidden rounded-[2rem] bg-gradient-to-br from-[#008C9D] to-[#007A8A] p-6 text-white shadow-xl shadow-[#008C9D]/20 md:rounded-[2.5rem] md:p-8">
+        <div className="group relative flex h-full flex-col justify-between overflow-hidden rounded-4xl bg-linear-to-br from-[#008C9D] to-[#007A8A] p-6 text-white shadow-xl shadow-[#008C9D]/20 md:rounded-[2.5rem] md:p-8">
           <div className="absolute top-0 right-0 -mt-10 -mr-10 h-40 w-40 rounded-full bg-white/10 blur-3xl transition-transform duration-700 group-hover:scale-150"></div>
           <div className="relative z-10">
             <div className="mb-6 flex items-start justify-between">
@@ -148,13 +147,13 @@ export default function SupervisorDashboard({
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
         <div className="space-y-8 lg:col-span-2">
-          <div className="rounded-[2rem] border border-gray-100 bg-white p-4 shadow-xl shadow-gray-100/50 md:rounded-[2.5rem] md:p-8">
+          <div className="rounded-4xl border border-gray-100 bg-white p-4 shadow-xl shadow-gray-100/50 dark:border-white/5 dark:bg-[#0d1117] dark:shadow-none md:rounded-[2.5rem] md:p-8">
             <div className="mb-6 flex flex-col items-start justify-between gap-4 md:mb-8 md:flex-row md:items-center">
               <div>
-                <h3 className="text-xl font-bold text-gray-900 md:text-2xl">
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white md:text-2xl">
                   Validasi Pelamar
                 </h3>
-                <p className="mt-1 text-xs text-gray-500 md:text-sm">
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 md:text-sm">
                   Setujui pelamar agar mereka dapat mulai bekerja.
                 </p>
               </div>
@@ -169,13 +168,13 @@ export default function SupervisorDashboard({
             />
           </div>
 
-          <div className="rounded-[2rem] border border-purple-100 bg-white p-4 shadow-xl shadow-purple-100/50 md:rounded-[2.5rem] md:p-8">
+          <div className="rounded-4xl border border-purple-100 bg-white p-4 shadow-xl shadow-purple-100/50 dark:border-white/5 dark:bg-[#0d1117] dark:shadow-none md:rounded-[2.5rem] md:p-8">
             <div className="mb-6 flex flex-col items-start justify-between gap-4 md:mb-8 md:flex-row md:items-center">
               <div>
-                <h3 className="text-xl font-bold text-gray-900 md:text-2xl">
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white md:text-2xl">
                   🔍 Verifikasi Bukti
                 </h3>
-                <p className="mt-1 text-xs text-gray-500 md:text-sm">
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 md:text-sm">
                   Cek bukti pengerjaan mahasiswa, lalu potong jam.
                 </p>
               </div>
@@ -190,13 +189,13 @@ export default function SupervisorDashboard({
             />
           </div>
 
-          <div className="rounded-[2rem] border border-gray-100 bg-white p-4 shadow-xl shadow-gray-100/50 md:rounded-[2.5rem] md:p-8">
+          <div className="rounded-4xl border border-gray-100 bg-white p-4 shadow-xl shadow-gray-100/50 dark:border-white/5 dark:bg-[#0d1117] dark:shadow-none md:rounded-[2.5rem] md:p-8">
             <div className="mb-6 flex flex-col items-start justify-between gap-4 md:mb-8 md:flex-row md:items-center">
               <div>
-                <h3 className="text-xl font-bold text-gray-900 md:text-2xl">
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white md:text-2xl">
                   Pekerjaan Berjalan
                 </h3>
-                <p className="text-xs text-gray-500 md:text-sm">
+                <p className="text-xs text-gray-500 dark:text-gray-400 md:text-sm">
                   Mahasiswa yang sedang mengerjakan (belum kirim bukti).
                 </p>
               </div>
@@ -213,8 +212,8 @@ export default function SupervisorDashboard({
         </div>
 
         <div className="space-y-6">
-          <div className="relative overflow-hidden rounded-[2rem] border border-gray-800 bg-gray-900 p-6 text-white shadow-xl md:rounded-[2.5rem] md:p-8">
-            <div className="absolute bottom-0 left-0 h-1/2 w-full bg-gradient-to-t from-[#008C9D]/20 to-transparent"></div>
+          <div className="relative overflow-hidden rounded-4xl border border-gray-800 bg-gray-900 p-6 text-white shadow-xl md:rounded-[2.5rem] md:p-8">
+            <div className="absolute bottom-0 left-0 h-1/2 w-full bg-linear-to-t from-[#008C9D]/20 to-transparent"></div>
             <div className="absolute top-0 right-0 h-32 w-32 rounded-full bg-white/5 blur-3xl"></div>
 
             <div className="relative z-10">
@@ -227,7 +226,7 @@ export default function SupervisorDashboard({
 
               <ul className="space-y-6">
                 <li className="flex gap-4">
-                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-[#008C9D]/30 bg-[#008C9D]/20 text-sm font-black text-[#008C9D]">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#008C9D]/30 bg-[#008C9D]/20 text-sm font-black text-[#008C9D]">
                     1
                   </div>
                   <p className="pt-1 text-sm leading-relaxed text-gray-300">
@@ -236,7 +235,7 @@ export default function SupervisorDashboard({
                   </p>
                 </li>
                 <li className="flex gap-4">
-                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-[#008C9D]/30 bg-[#008C9D]/20 text-sm font-black text-[#008C9D]">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#008C9D]/30 bg-[#008C9D]/20 text-sm font-black text-[#008C9D]">
                     2
                   </div>
                   <p className="pt-1 text-sm leading-relaxed text-gray-300">
@@ -244,7 +243,7 @@ export default function SupervisorDashboard({
                   </p>
                 </li>
                 <li className="flex gap-4">
-                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-[#008C9D]/30 bg-[#008C9D]/20 text-sm font-black text-[#008C9D]">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#008C9D]/30 bg-[#008C9D]/20 text-sm font-black text-[#008C9D]">
                     3
                   </div>
                   <p className="pt-1 text-sm leading-relaxed text-gray-300">
