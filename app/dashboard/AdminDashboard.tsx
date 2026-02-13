@@ -13,6 +13,7 @@ import {
   Users,
 } from "lucide-react";
 import ApplicationList from "./ApplicationList";
+import TrendChart from "@/components/TrendChart";
 import { User, JobApplication } from "@/types";
 
 interface AdminDashboardProps {
@@ -32,6 +33,7 @@ interface AdminDashboardProps {
     job: { title: string; hours: number };
   })[];
   topDebtors?: { name: string; nim: string | null; totalHours: number }[];
+  trendData?: { month: string; hours: number }[];
 }
 
 export default function AdminDashboard({
@@ -40,15 +42,16 @@ export default function AdminDashboard({
   applications,
   acceptedApplications,
   topDebtors,
+  trendData,
 }: AdminDashboardProps) {
   return (
-    <div className="mx-auto min-h-screen max-w-[1600px] space-y-8 px-4 pt-8 pb-12 sm:px-8">
+    <div className="mx-auto min-h-screen max-w-[1600px] space-y-8 px-4 pt-8 pb-12 transition-colors duration-300 sm:px-8 dark:bg-slate-950">
       <header className="mb-4 flex flex-col items-start justify-between gap-6 lg:flex-row lg:items-end">
         <div>
-          <h1 className="mb-2 text-3xl font-black tracking-tight text-gray-900 md:text-5xl">
+          <h1 className="mb-2 text-3xl font-black tracking-tight text-gray-900 md:text-5xl dark:text-white">
             Admin Portal
           </h1>
-          <p className="text-sm font-medium text-gray-500 md:text-lg">
+          <p className="text-sm font-medium text-gray-500 md:text-lg dark:text-gray-400">
             Monitoring & Manajemen Kompensasi Pusat
           </p>
         </div>
@@ -155,6 +158,15 @@ export default function AdminDashboard({
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
         <div className="space-y-8 lg:col-span-2">
+          {trendData && trendData.length > 0 && (
+            <div className="rounded-4xl border border-gray-100 bg-white p-4 shadow-xl shadow-gray-100/50 md:rounded-[2.5rem] md:p-8">
+              <TrendChart
+                data={trendData}
+                color="#008C9D"
+                title="Tren Jam Kompensasi (6 Bulan Terakhir)"
+              />
+            </div>
+          )}
           <div className="rounded-4xl border border-gray-100 bg-white p-4 shadow-xl shadow-gray-100/50 md:rounded-[2.5rem] md:p-8">
             <div className="mb-6 flex flex-col items-start justify-between gap-4 md:mb-8 md:flex-row md:items-center">
               <div>

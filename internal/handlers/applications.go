@@ -213,6 +213,7 @@ func (h *ApplicationHandler) UpdateStatus(c *gin.Context) {
 				Message:   notifMsg,
 				CreatedAt: time.Now(),
 			})
+			utils.BroadcastEvent("NOTIFICATION", notifMsg, app.UserID)
 		}
 
 		return nil

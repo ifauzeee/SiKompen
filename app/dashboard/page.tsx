@@ -163,8 +163,29 @@ async function getDashboardData() {
   }
 }
 
+async function getTrendData(token: string) {
+  try {
+    const response = await fetch(`${API_URL}/dashboard/trends`, {
+      headers: { Authorization: `Bearer ${token}` },
+      next: { revalidate: 3600 },
+    });
+    if (!response.ok) return [];
+    return await response.json();
+  } catch (_e) {
+    return [];
+  }
+}
+
 export default async function DashboardPage() {
-  const data = await getDashboardData();
+  const session = await getSession();
+  if (!session) {
+    redirect("/login");
+  }
+
+  const [data, trendData] = await Promise.all([
+    getDashboardData(),
+    getTrendData(session.token),
+  ]);
 
   if (!data) {
     redirect("/login");
@@ -188,6 +209,7 @@ export default async function DashboardPage() {
         applications={applications}
         acceptedApplications={acceptedApplications}
         topDebtors={topDebtors}
+        trendData={trendData}
       />
     );
   }

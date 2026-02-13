@@ -14,7 +14,6 @@ import (
 )
 
 func main() {
-
 	if err := godotenv.Load("../../.env"); err != nil {
 		log.Println("No .env file found or error loading it")
 	}
@@ -25,30 +24,34 @@ func main() {
 	}
 
 	utils.InitRedis()
+	utils.InitSSE()
 	db := repository.InitDB(dbURL)
 	repos := repository.NewRepositories(db)
 
-	r := gin.Default()
+	authHandler := handlers.NewAuthHandler(repos.User)
+	userHandler := handlers.NewUserHandler(repos.User)
+	jobHandler := handlers.NewJobHandler(repos.Job, repos.Application)
+	appHandler := handlers.NewApplicationHandler(repos.Application, repos.Job, repos.User, repos.Admin, repos.Notification, db)
+	paymentHandler := handlers.NewPaymentHandler(repos.Payment, repos.User, repos.Admin, repos.Notification, db)
+	adminHandler := handlers.NewAdminHandler(repos.Admin, repos.User)
+	statsHandler := handlers.NewStatsHandler(repos)
+	notifHandler := handlers.NewNotificationHandler(repos.Notification)
+	trendHandler := handlers.NewTrendHandler(repos)
 
-	r.Use(gin.Recovery())
-	r.Static("/uploads", "./uploads")
+	r := gin.Default()
 
 	allowedOrigins := os.Getenv("CORS_ORIGIN")
 	if allowedOrigins == "" {
 		allowedOrigins = "http://localhost:3000"
 	}
-
 	r.Use(func(c *gin.Context) {
 		origin := c.GetHeader("Origin")
-
 		for _, allowed := range strings.Split(allowedOrigins, ",") {
-			allowed = strings.TrimSpace(allowed)
-			if origin == allowed {
+			if origin == strings.TrimSpace(allowed) {
 				c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
 				break
 			}
 		}
-
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
@@ -59,47 +62,42 @@ func main() {
 		c.Next()
 	})
 
-	authHandler := handlers.NewAuthHandler(repos.User)
-	jobHandler := handlers.NewJobHandler(repos.Job, repos.Application)
-	appRepo := repos.Application
-	appHandler := handlers.NewApplicationHandler(appRepo, repos.Job, repos.User, repos.Admin, repos.Notification, db)
-	adminHandler := handlers.NewAdminHandler(repos.Admin, repos.User)
-	paymentHandler := handlers.NewPaymentHandler(repos.Payment, repos.User, repos.Admin, repos.Notification, db)
-	userHandler := handlers.NewUserHandler(repos.User)
-	statsHandler := handlers.NewStatsHandler(repos)
-	notifHandler := handlers.NewNotificationHandler(repos.Notification)
+	r.Static("/uploads", "./uploads")
 
 	api := r.Group("/api")
 	{
 		api.POST("/login", authHandler.Login)
+		api.GET("/events", utils.SSEHandler)
 
-		auth := api.Group("/")
-		auth.Use(middleware.AuthMiddleware())
+		protected := api.Group("")
+		protected.Use(middleware.AuthMiddleware())
 		{
-			auth.GET("/me", authHandler.GetMe)
-			auth.GET("/dashboard/stats", statsHandler.GetDashboardData)
+			protected.GET("/me", authHandler.GetMe)
+			protected.GET("/dashboard/stats", statsHandler.GetDashboardData)
+			protected.GET("/dashboard/trends", trendHandler.GetCompensationTrend)
+			protected.GET("/dashboard/finance", statsHandler.GetFinanceData)
 
-			auth.PATCH("/users/password", userHandler.ChangePassword)
+			protected.PATCH("/users/password", userHandler.ChangePassword)
 
-			auth.GET("/jobs", jobHandler.GetJobs)
-			auth.POST("/jobs", middleware.AdminOnly(), jobHandler.CreateJob)
-			auth.PUT("/jobs/:id", middleware.AdminOnly(), jobHandler.UpdateJob)
-			auth.DELETE("/jobs/:id", middleware.AdminOnly(), jobHandler.DeleteJob)
-			auth.PATCH("/jobs/:id/status", middleware.AdminOnly(), jobHandler.ToggleStatus)
+			protected.GET("/jobs", jobHandler.GetJobs)
+			protected.POST("/jobs", middleware.AdminOnly(), jobHandler.CreateJob)
+			protected.PUT("/jobs/:id", middleware.AdminOnly(), jobHandler.UpdateJob)
+			protected.DELETE("/jobs/:id", middleware.AdminOnly(), jobHandler.DeleteJob)
+			protected.PATCH("/jobs/:id/status", middleware.AdminOnly(), jobHandler.ToggleStatus)
 
-			auth.POST("/jobs/:jobId/apply", appHandler.ApplyForJob)
-			auth.GET("/applications", appHandler.GetByStatus)
-			auth.PATCH("/applications/:id/status", appHandler.UpdateStatus)
-			auth.POST("/applications/:id/proof", appHandler.SubmitProof)
+			protected.POST("/jobs/:jobId/apply", appHandler.ApplyForJob)
+			protected.GET("/applications", appHandler.GetByStatus)
+			protected.PATCH("/applications/:id/status", appHandler.UpdateStatus)
+			protected.POST("/applications/:id/proof", appHandler.SubmitProof)
 
-			auth.PATCH("/payments/:id/verify", paymentHandler.VerifyPayment)
-			auth.GET("/finance/stats", statsHandler.GetFinanceData)
+			protected.POST("/payments", paymentHandler.CreatePayment)
+			protected.PATCH("/payments/:id/verify", paymentHandler.VerifyPayment)
 
-			auth.GET("/notifications", notifHandler.GetMyNotifications)
-			auth.PATCH("/notifications/:id/read", notifHandler.MarkAsRead)
-			auth.PATCH("/notifications/read-all", notifHandler.MarkAllAsRead)
+			protected.GET("/notifications", notifHandler.GetMyNotifications)
+			protected.PATCH("/notifications/:id/read", notifHandler.MarkAsRead)
+			protected.PATCH("/notifications/read-all", notifHandler.MarkAllAsRead)
 
-			admin := auth.Group("/admin")
+			admin := protected.Group("/admin")
 			admin.Use(middleware.AdminOnly())
 			{
 				admin.GET("/stats", userHandler.GetStats)

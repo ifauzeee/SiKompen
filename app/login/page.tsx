@@ -118,7 +118,7 @@ export default function LoginPage() {
 
           {errorMsg && (
             <div className="input-group animate-in fade-in slide-in-from-top-2 mb-8 flex items-center gap-3 rounded-2xl border border-red-100 bg-red-50 p-4 text-red-600 duration-300">
-              <div className="shrink-0 flex h-10 w-10 items-center justify-center rounded-full bg-red-100 text-red-600">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">
                 <AlertCircle size={20} />
               </div>
               <div>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Bell } from "lucide-react";
+import { useRouter } from "next/navigation";
 import {
   getMyNotifications,
   markNotificationAsRead,
@@ -22,8 +23,40 @@ export default function NotificationBell() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-
   const unreadCount = notifications.filter((n) => !n.isRead).length;
+
+  const router = useRouter();
+
+  useEffect(() => {
+    const eventSource = new EventSource(
+      `${process.env.NEXT_PUBLIC_API_URL}/events`,
+    );
+
+    eventSource.addEventListener("NOTIFICATION", (event: MessageEvent) => {
+      const data = JSON.parse(event.data);
+      setNotifications((prev) => [
+        {
+          id: Date.now(),
+          title: "Notifikasi Baru",
+          message: data.message,
+          isRead: false,
+          createdAt: new Date().toISOString(),
+        },
+        ...prev,
+      ]);
+
+      router.refresh();
+    });
+
+    eventSource.onerror = (err) => {
+      console.error("SSE Error:", err);
+      eventSource.close();
+    };
+
+    return () => {
+      eventSource.close();
+    };
+  }, [router]);
 
   useEffect(() => {
     const fetchNotifications = async () => {
@@ -111,22 +144,20 @@ export default function NotificationBell() {
                   <div
                     key={notif.id}
                     onClick={() => !notif.isRead && handleMarkAsRead(notif.id)}
-                    className={`group relative flex cursor-pointer gap-3 p-4 transition-colors ${
-                      notif.isRead
+                    className={`group relative flex cursor-pointer gap-3 p-4 transition-colors ${notif.isRead
                         ? "bg-transparent hover:bg-gray-50 dark:hover:bg-gray-800/30"
                         : "bg-pnj-blue/5 hover:bg-pnj-blue/10"
-                    }`}
+                      }`}
                   >
                     {!notif.isRead && (
                       <div className="bg-pnj-blue absolute top-5 right-4 h-2 w-2 rounded-full" />
                     )}
                     <div className="flex-1 space-y-1">
                       <p
-                        className={`text-sm leading-tight ${
-                          notif.isRead
+                        className={`text-sm leading-tight ${notif.isRead
                             ? "font-medium text-gray-700 dark:text-gray-300"
                             : "font-bold text-gray-900 dark:text-gray-100"
-                        }`}
+                          }`}
                       >
                         {notif.title}
                       </p>

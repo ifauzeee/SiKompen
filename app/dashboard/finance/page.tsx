@@ -7,6 +7,19 @@ const API_URL =
   process.env.NEXT_PUBLIC_API_URL ||
   "http://localhost:8080/api";
 
+async function getTrendData(token: string) {
+  try {
+    const response = await fetch(`${API_URL}/dashboard/trends`, {
+      headers: { Authorization: `Bearer ${token}` },
+      next: { revalidate: 3600 },
+    });
+    if (!response.ok) return [];
+    return await response.json();
+  } catch (_e) {
+    return [];
+  }
+}
+
 export default async function FinancePage() {
   const session = await getSession();
 
@@ -14,16 +27,17 @@ export default async function FinancePage() {
     redirect("/dashboard");
   }
 
-  const res = await fetch(`${API_URL}/finance/stats`, {
-    headers: {
-      Authorization: `Bearer ${session.token}`,
-    },
-    next: { revalidate: 0 },
-  });
+  const [statsRes, trendData] = await Promise.all([
+    fetch(`${API_URL}/finance/stats`, {
+      headers: { Authorization: `Bearer ${session.token}` },
+      next: { revalidate: 0 },
+    }),
+    getTrendData(session.token),
+  ]);
 
-  if (!res.ok) return <div>Gagal mengambil data finance.</div>;
+  if (!statsRes.ok) return <div>Gagal mengambil data finance.</div>;
 
-  const data = await res.json();
+  const data = await statsRes.json();
 
   return (
     <FinanceDashboardClient
@@ -31,6 +45,7 @@ export default async function FinancePage() {
       stats={data.stats}
       history={data.history}
       debtors={data.debtors}
+      trendData={trendData}
     />
   );
 }

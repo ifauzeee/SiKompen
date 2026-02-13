@@ -381,14 +381,15 @@ export default function UserManagementClient({ users }: { users: User[] }) {
                       </td>
                       <td className="p-6">
                         <span
-                          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold ${user.role === "ADMIN"
-                            ? "border-[#008C9D]/20 bg-[#008C9D]/10 text-[#008C9D]"
-                            : user.role === "PENGAWAS"
-                              ? "border-blue-100 bg-blue-50 text-blue-600"
-                              : user.role === "KEUANGAN"
-                                ? "border-purple-100 bg-purple-50 text-purple-600"
-                                : "border-red-100 bg-red-50 text-[#CE2029]"
-                            }`}
+                          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold ${
+                            user.role === "ADMIN"
+                              ? "border-[#008C9D]/20 bg-[#008C9D]/10 text-[#008C9D]"
+                              : user.role === "PENGAWAS"
+                                ? "border-blue-100 bg-blue-50 text-blue-600"
+                                : user.role === "KEUANGAN"
+                                  ? "border-purple-100 bg-purple-50 text-purple-600"
+                                  : "border-red-100 bg-red-50 text-[#CE2029]"
+                          }`}
                         >
                           {user.role === "ADMIN" && <Shield size={12} />}
                           {user.role === "PENGAWAS" && <UserIcon size={12} />}

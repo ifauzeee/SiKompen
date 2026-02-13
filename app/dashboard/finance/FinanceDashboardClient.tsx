@@ -13,6 +13,7 @@ import {
   AlertTriangle,
   ArrowUpRight,
 } from "lucide-react";
+import TrendChart from "@/components/TrendChart";
 import { verifyPayment } from "@/app/actions/payment";
 
 type Payment = {
@@ -61,6 +62,7 @@ interface FinanceDashboardProps {
   };
   history: HistoryPayment[];
   debtors: Debtor[];
+  trendData?: { month: string; hours: number }[];
 }
 
 export default function FinanceDashboardClient({
@@ -68,6 +70,7 @@ export default function FinanceDashboardClient({
   stats,
   history,
   debtors,
+  trendData,
 }: FinanceDashboardProps) {
   const { showConfirm, showAlert } = useDialog();
   const [selectedProof, setSelectedProof] = useState<string | null>(null);
@@ -92,13 +95,13 @@ export default function FinanceDashboardClient({
   }
 
   return (
-    <div className="mx-auto min-h-screen max-w-[1600px] space-y-8 px-4 pt-8 pb-12 sm:px-8">
+    <div className="mx-auto min-h-screen max-w-[1600px] space-y-8 px-4 pt-8 pb-12 transition-colors duration-300 sm:px-8 dark:bg-slate-950">
       <header className="mb-4 flex flex-col items-start justify-between gap-6 md:flex-row md:items-end">
         <div>
-          <h1 className="mb-2 text-4xl font-black tracking-tight text-gray-900 md:text-5xl">
+          <h1 className="mb-2 text-4xl font-black tracking-tight text-gray-900 md:text-5xl dark:text-white">
             Finance Portal
           </h1>
-          <p className="text-lg font-medium text-gray-500">
+          <p className="text-lg font-medium text-gray-500 dark:text-gray-400">
             Pusat Manajemen Keuangan & Kompensasi
           </p>
         </div>
@@ -174,6 +177,16 @@ export default function FinanceDashboardClient({
           </div>
         </div>
       </div>
+
+      {trendData && trendData.length > 0 && (
+        <div className="rounded-[2.5rem] border border-gray-100 bg-white p-6 shadow-xl shadow-gray-100/50">
+          <TrendChart
+            data={trendData}
+            color="#F4B41A"
+            title="Tren Pemasukan Jam Kompensasi"
+          />
+        </div>
+      )}
 
       <div className="flex w-fit gap-2 rounded-2xl bg-gray-100 p-1">
         {[

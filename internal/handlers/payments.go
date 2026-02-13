@@ -7,6 +7,7 @@ import (
 	"sikompen-backend/internal/repository"
 	"sikompen-backend/internal/utils"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -112,8 +113,10 @@ func (h *PaymentHandler) VerifyPayment(c *gin.Context) {
 		return
 	}
 
+	var payment *models.Payment
 	err := h.DB.Transaction(func(tx *gorm.DB) error {
-		payment, err := h.Repo.GetByID(uint(paymentId))
+		var err error
+		payment, err = h.Repo.GetByID(uint(paymentId))
 		if err != nil {
 			return fmt.Errorf("payment not found")
 		}
@@ -193,6 +196,9 @@ func (h *PaymentHandler) VerifyPayment(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
+	msg := fmt.Sprintf("Pembayaran Anda senilai Rp%.0f telah %s.", payment.Amount, strings.ToLower(req.Status))
+	utils.BroadcastEvent("PAYMENT_VERIFIED", msg, payment.UserID)
 
 	c.JSON(http.StatusOK, gin.H{"success": true})
 }
