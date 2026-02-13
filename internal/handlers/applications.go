@@ -93,6 +93,7 @@ func (h *ApplicationHandler) ApplyForJob(c *gin.Context) {
 		return
 	}
 
+	utils.DeleteCache("stats:admin_global")
 	c.JSON(http.StatusCreated, gin.H{"success": true})
 }
 
@@ -222,6 +223,8 @@ func (h *ApplicationHandler) UpdateStatus(c *gin.Context) {
 		return
 	}
 
+	utils.DeleteCache("stats:admin_global")
+	utils.DeleteCache("jobs:all")
 	c.JSON(http.StatusOK, gin.H{"success": true})
 }
 

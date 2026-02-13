@@ -1,10 +1,13 @@
 package handlers
 
 import (
+	"encoding/json"
 	"net/http"
 	"sikompen-backend/internal/models"
 	"sikompen-backend/internal/repository"
+	"sikompen-backend/internal/utils"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -50,14 +53,32 @@ func (h *JobHandler) CreateJob(c *gin.Context) {
 		return
 	}
 
+	utils.DeleteCache("jobs:all")
+	utils.DeleteCache("stats:admin_global")
 	c.JSON(http.StatusCreated, job)
 }
 
 func (h *JobHandler) GetJobs(c *gin.Context) {
+	cacheKey := "jobs:all"
+	if cached, err := utils.GetCache(cacheKey); err == nil {
+		var jobs []models.Job
+		if json.Unmarshal([]byte(cached), &jobs) == nil {
+			c.JSON(http.StatusOK, gin.H{
+				"jobs":       jobs,
+				"from_cache": true,
+			})
+			return
+		}
+	}
+
 	jobs, err := h.JobRepo.GetAll(nil)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch jobs"})
 		return
+	}
+
+	if jobsJson, err := json.Marshal(jobs); err == nil {
+		utils.SetCache(cacheKey, string(jobsJson), 5*time.Minute)
 	}
 
 	c.JSON(http.StatusOK, jobs)
@@ -99,6 +120,8 @@ func (h *JobHandler) UpdateJob(c *gin.Context) {
 		return
 	}
 
+	utils.DeleteCache("jobs:all")
+	utils.DeleteCache("stats:admin_global")
 	c.JSON(http.StatusOK, job)
 }
 
@@ -117,6 +140,7 @@ func (h *JobHandler) DeleteJob(c *gin.Context) {
 		return
 	}
 
+	utils.DeleteCache("jobs:all")
 	c.JSON(http.StatusOK, gin.H{"success": true})
 }
 
@@ -145,5 +169,7 @@ func (h *JobHandler) ToggleStatus(c *gin.Context) {
 		return
 	}
 
+	utils.DeleteCache("jobs:all")
+	utils.DeleteCache("stats:admin_global")
 	c.JSON(http.StatusOK, gin.H{"status": job.Status})
 }

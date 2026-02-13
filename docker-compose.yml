@@ -1,5 +1,6 @@
 services:
   backend:
+    container_name: sikompen_backend_main
     build:
       context: .
       dockerfile: Dockerfile.backend
@@ -13,8 +14,12 @@ services:
       - PORT=8080
     depends_on:
       - db
+      - redis
+    networks:
+      - sikompen_net
 
   db:
+    container_name: sikompen_db_main
     image: postgres:15-alpine
     restart: always
     environment:
@@ -25,8 +30,22 @@ services:
       - "5432:5432"
     volumes:
       - ./postgres_data:/var/lib/postgresql/data
+    networks:
+      - sikompen_net
+
+  redis:
+    container_name: sikompen_redis_main
+    image: redis:alpine
+    restart: always
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - sikompen_net
 
   frontend:
+    container_name: sikompen_frontend_main
     build:
       context: .
       dockerfile: Dockerfile
@@ -40,6 +59,13 @@ services:
       - INTERNAL_API_URL=http://backend:8080/api
     depends_on:
       - backend
+    networks:
+      - sikompen_net
+
+networks:
+  sikompen_net:
+    driver: bridge
 
 volumes:
   postgres_data:
+  redis_data:

@@ -6,6 +6,7 @@ import (
 	"sikompen-backend/internal/handlers"
 	"sikompen-backend/internal/middleware"
 	"sikompen-backend/internal/repository"
+	"sikompen-backend/internal/utils"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -23,6 +24,7 @@ func main() {
 		dbURL = "sikompen.db"
 	}
 
+	utils.InitRedis()
 	db := repository.InitDB(dbURL)
 	repos := repository.NewRepositories(db)
 

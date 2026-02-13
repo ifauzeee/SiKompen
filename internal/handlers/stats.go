@@ -1,9 +1,12 @@
 package handlers
 
 import (
+	"encoding/json"
 	"net/http"
 	"sikompen-backend/internal/models"
 	"sikompen-backend/internal/repository"
+	"sikompen-backend/internal/utils"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -28,10 +31,35 @@ func (h *StatsHandler) GetDashboardData(c *gin.Context) {
 	}
 
 	if role == "ADMIN" {
+		var stats map[string]interface{}
+		cacheKey := "stats:admin_global"
+
+		if cached, err := utils.GetCache(cacheKey); err == nil {
+			if json.Unmarshal([]byte(cached), &stats) == nil {
+				topDebtors, _ := h.Repos.User.GetAll(map[string]interface{}{
+					"role":        "MAHASISWA",
+					"total_hours": "> 0",
+				})
+
+				c.JSON(http.StatusOK, gin.H{
+					"role":       "ADMIN",
+					"user":       user,
+					"adminStats": stats,
+					"topDebtors": topDebtors,
+					"from_cache": true,
+				})
+				return
+			}
+		}
+
 		stats, err := h.Repos.User.GetGlobalStats()
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch stats"})
 			return
+		}
+
+		if statsJson, err := json.Marshal(stats); err == nil {
+			utils.SetCache(cacheKey, string(statsJson), 10*time.Minute)
 		}
 
 		topDebtors, _ := h.Repos.User.GetAll(map[string]interface{}{
