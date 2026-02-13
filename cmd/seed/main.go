@@ -19,7 +19,6 @@ func main() {
 		log.Fatalf("failed to connect database: %v", err)
 	}
 
-
 	err = db.AutoMigrate(
 		&models.User{},
 		&models.Job{},
@@ -32,7 +31,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to migrate database: %v", err)
 	}
-
 
 	username := "admin"
 	password := "password123"
@@ -57,7 +55,6 @@ func main() {
 		}
 		fmt.Printf("Created default user: %s / %s\n", username, password)
 	}
-
 
 	studentUsername := "mahasiswa"
 	studentPassword := "password123"

@@ -27,7 +27,6 @@ func main() {
 
 	r := gin.Default()
 
-
 	allowedOrigins := os.Getenv("CORS_ORIGIN")
 	if allowedOrigins == "" {
 		allowedOrigins = "http://localhost:3000"
@@ -35,7 +34,6 @@ func main() {
 
 	r.Use(func(c *gin.Context) {
 		origin := c.GetHeader("Origin")
-
 
 		for _, allowed := range strings.Split(allowedOrigins, ",") {
 			allowed = strings.TrimSpace(allowed)
@@ -67,16 +65,13 @@ func main() {
 	{
 		api.POST("/login", authHandler.Login)
 
-
 		auth := api.Group("/")
 		auth.Use(middleware.AuthMiddleware())
 		{
 			auth.GET("/me", authHandler.GetMe)
 			auth.GET("/dashboard/stats", statsHandler.GetDashboardData)
 
-
 			auth.PATCH("/users/password", userHandler.ChangePassword)
-
 
 			auth.GET("/jobs", jobHandler.GetJobs)
 			auth.POST("/jobs", middleware.AdminOnly(), jobHandler.CreateJob)
@@ -84,17 +79,14 @@ func main() {
 			auth.DELETE("/jobs/:id", middleware.AdminOnly(), jobHandler.DeleteJob)
 			auth.PATCH("/jobs/:id/status", middleware.AdminOnly(), jobHandler.ToggleStatus)
 
-
 			auth.POST("/jobs/:jobId/apply", appHandler.ApplyForJob)
 			auth.GET("/applications", appHandler.GetByStatus)
 			auth.PATCH("/applications/:id/status", appHandler.UpdateStatus)
 			auth.POST("/applications/:id/proof", appHandler.SubmitProof)
 
-
 			auth.POST("/payments", paymentHandler.CreatePayment)
 			auth.PATCH("/payments/:id/verify", paymentHandler.VerifyPayment)
 			auth.GET("/finance/stats", statsHandler.GetFinanceData)
-
 
 			admin := auth.Group("/admin")
 			admin.Use(middleware.AdminOnly())
