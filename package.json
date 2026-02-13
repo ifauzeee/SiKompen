@@ -12,6 +12,7 @@
     "format:frontend": "prettier --write .",
     "format:backend": "go fmt ./...",
     "lint:all": "pnpm lint && pnpm lint:backend",
+    "test:backend": "go test ./internal/...",
     "test:all": "pnpm test:backend",
     "check": "pnpm lint:all && pnpm format && pnpm test:all",
     "fix": "pnpm format && go mod tidy",
