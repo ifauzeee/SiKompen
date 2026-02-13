@@ -8,8 +8,13 @@
     "start": "next start",
     "lint": "eslint",
     "lint:backend": "go vet ./...",
-    "format:backend": "gofmt -l .",
-    "test:backend": "go test ./internal/...",
+    "format": "pnpm format:frontend && pnpm format:backend",
+    "format:frontend": "prettier --write .",
+    "format:backend": "go fmt ./...",
+    "lint:all": "pnpm lint && pnpm lint:backend",
+    "test:all": "pnpm test:backend",
+    "check": "pnpm lint:all && pnpm format && pnpm test:all",
+    "fix": "pnpm format && go mod tidy",
     "prepare": "husky"
   },
   "dependencies": {
@@ -33,6 +38,8 @@
     "eslint": "^9",
     "eslint-config-next": "15.1.9",
     "husky": "^9.1.7",
+    "prettier": "^3.8.1",
+    "prettier-plugin-tailwindcss": "^0.7.2",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
     "typescript": "^5"

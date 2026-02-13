@@ -31,19 +31,19 @@ export default async function RootLayout({
 
   return (
     <html lang="id" suppressHydrationWarning className="scroll-smooth">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-gray-50 relative overflow-x-hidden selection:bg-[#008C9D] selection:text-white`}>
-        <div className="fixed inset-0 z-0 pointer-events-none">
-          <div className="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] bg-[#008C9D]/5 rounded-full blur-[100px]" />
-          <div className="absolute bottom-[-10%] left-[-5%] w-[500px] h-[500px] bg-[#F4B41A]/5 rounded-full blur-[100px]" />
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} relative min-h-screen overflow-x-hidden bg-gray-50 antialiased selection:bg-[#008C9D] selection:text-white`}
+      >
+        <div className="pointer-events-none fixed inset-0 z-0">
+          <div className="absolute top-[-10%] right-[-5%] h-[500px] w-[500px] rounded-full bg-[#008C9D]/5 blur-[100px]" />
+          <div className="absolute bottom-[-10%] left-[-5%] h-[500px] w-[500px] rounded-full bg-[#F4B41A]/5 blur-[100px]" />
         </div>
 
         <ThemeProvider>
           <DialogProvider>
             <div className="relative z-10">
               <Sidebar role={user?.role} userName={user?.name || undefined} />
-              <MainLayout>
-                {children}
-              </MainLayout>
+              <MainLayout>{children}</MainLayout>
             </div>
           </DialogProvider>
         </ThemeProvider>

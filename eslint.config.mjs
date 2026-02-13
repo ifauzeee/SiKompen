@@ -11,7 +11,7 @@ const compat = new FlatCompat({
 
 const eslintConfig = [
   {
-    ignores: ["**/node_modules/**", "**/.next/**", "**/dist/**", "**/build/**"]
+    ignores: ["**/node_modules/**", "**/.next/**", "**/dist/**", "**/build/**"],
   },
   ...compat.extends("next/core-web-vitals"),
   ...compat.extends("next/typescript"),
@@ -20,15 +20,15 @@ const eslintConfig = [
       "@typescript-eslint/no-unused-vars": [
         "error",
         {
-          "argsIgnorePattern": "^_",
-          "varsIgnorePattern": "^_",
-          "caughtErrorsIgnorePattern": "^_"
-        }
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+        },
       ],
       "@typescript-eslint/no-explicit-any": "error",
-      "@next/next/no-img-element": "off"
-    }
-  }
+      "@next/next/no-img-element": "off",
+    },
+  },
 ];
 
 export default eslintConfig;

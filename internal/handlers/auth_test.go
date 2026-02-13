@@ -81,7 +81,9 @@ func TestLogin_Success(t *testing.T) {
 	}
 
 	var resp map[string]interface{}
-	json.Unmarshal(w.Body.Bytes(), &resp)
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
 
 	if _, ok := resp["token"]; !ok {
 		t.Error("expected token in response")
@@ -155,7 +157,9 @@ func TestGetMe_Success(t *testing.T) {
 	}
 
 	var resp map[string]interface{}
-	json.Unmarshal(w.Body.Bytes(), &resp)
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
 	if resp["username"] != "student" {
 		t.Errorf("expected username 'student', got '%v'", resp["username"])
 	}

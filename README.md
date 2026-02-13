@@ -50,7 +50,7 @@
 Projek ini menggunakan pendekatan **High-Performance Micro-services** (de-coupled):
 
 - **Backend (Go)**: Menggunakan framework Gin/Gorilla untuk manajemen API yang super cepat, aman, dan efisien.
-- **Frontend (Next.js 15)**: Memanfaatkan *Standalone Mode* untuk optimasi Docker image dan performa *Server-Side Rendering*.
+- **Frontend (Next.js 15)**: Memanfaatkan _Standalone Mode_ untuk optimasi Docker image dan performa _Server-Side Rendering_.
 - **Database**: SQLite yang dioptimalkan dengan GORM untuk integritas data yang solid.
 
 ---
@@ -60,45 +60,52 @@ Projek ini menggunakan pendekatan **High-Performance Micro-services** (de-couple
 Aplikasi ini mendukung 4 Role utama dengan ekosistem yang saling terintegrasi:
 
 ### 🎓 Mahasiswa
-| Fitur | Manfaat |
-|-------|---------|
-| **Dashboard Dinamis** | Pantau sisa jam, status lamaran, dan histori aktivitas. |
-| **Explorasi Pekerjaan** | Temukan lowongan kompensasi sesuai minat dan keahlian. |
-| **Submission Manager** | Upload bukti pengerjaan (foto/dokumen) secara langsung. |
+
+| Fitur                   | Manfaat                                                 |
+| ----------------------- | ------------------------------------------------------- |
+| **Dashboard Dinamis**   | Pantau sisa jam, status lamaran, dan histori aktivitas. |
+| **Explorasi Pekerjaan** | Temukan lowongan kompensasi sesuai minat dan keahlian.  |
+| **Submission Manager**  | Upload bukti pengerjaan (foto/dokumen) secara langsung. |
 
 ### 👨‍🏫 Dosen / Supervisor
-| Fitur | Manfaat |
-|-------|---------|
-| **Job Creator** | Publikasi tugas baru dengan manajemen kuota yang cerdas. |
+
+| Fitur               | Manfaat                                                          |
+| ------------------- | ---------------------------------------------------------------- |
+| **Job Creator**     | Publikasi tugas baru dengan manajemen kuota yang cerdas.         |
 | **Validation Flow** | Review bukti pengerjaan dan berikan persetujuan dalam satu klik. |
 
 ### 💰 Staf Keuangan
-| Fitur | Manfaat |
-|-------|---------|
+
+| Fitur                    | Manfaat                                                        |
+| ------------------------ | -------------------------------------------------------------- |
 | **Payment Verification** | Validasi bukti bayar mahasiswa untuk pengurangan jam langsung. |
-| **Financial Analytics** | Laporan statistik keuangan terkait kompensasi. |
+| **Financial Analytics**  | Laporan statistik keuangan terkait kompensasi.                 |
 
 ### 🛡️ Admin
-| Fitur | Manfaat |
-|-------|---------|
-| **Master Data Control** | Kelola data User, Prodi, Kelas, dan Role sistem. |
-| **System Audit** | Pantau log aktivitas global dan konfigurasi sistem. |
+
+| Fitur                   | Manfaat                                             |
+| ----------------------- | --------------------------------------------------- |
+| **Master Data Control** | Kelola data User, Prodi, Kelas, dan Role sistem.    |
+| **System Audit**        | Pantau log aktivitas global dan konfigurasi sistem. |
 
 ---
 
 ## 🛠️ Tech Stack
 
 ### Frontend
+
 - **Next.js 15** (App Router)
 - **Tailwind CSS v4** (Modern JIT Engine)
 - **Lucide Icons** & **GSAP** (Smooth Animations)
 
 ### Backend
+
 - **Go 1.24** (Gin Framework)
 - **GORM** (SQLite Driver)
 - **JWT Auth** (Secure Session Management)
 
 ### DevOps
+
 - **Docker & Docker Compose**
 - **Standalone Build Optimization**
 
@@ -109,9 +116,11 @@ Aplikasi ini mendukung 4 Role utama dengan ekosistem yang saling terintegrasi:
 Cara termudah untuk menjalankan **SiKompen** adalah menggunakan Docker.
 
 ### 1. Persiapan
+
 Pastikan Anda sudah menginstal **Docker Desktop** dan **Docker Compose**.
 
 ### 2. Jalankan Aplikasi
+
 Clone repositori dan jalankan perintah berikut:
 
 ```bash
@@ -127,14 +136,17 @@ docker compose up -d --build
 ```
 
 ### 3. Akses
+
 Aplikasi akan tersedia pada URL berikut:
+
 - **Frontend**: [http://localhost:3001](http://localhost:3001)
 - **Backend API**: [http://localhost:8080/api](http://localhost:8080/api)
 
 ### 🔑 Akun Demo (Default)
-| Role | Username | Password |
-|------|----------|----------|
-| **Admin** | `admin` | `admin123` |
+
+| Role      | Username | Password   |
+| --------- | -------- | ---------- |
+| **Admin** | `admin`  | `admin123` |
 
 ---
 

@@ -1,75 +1,90 @@
 "use client";
 
 import { useState } from "react";
-import { FileText, Download, Users, Clock, AlertTriangle, TrendingUp } from "lucide-react";
+import {
+  FileText,
+  Download,
+  Users,
+  Clock,
+  AlertTriangle,
+  TrendingUp,
+} from "lucide-react";
 
 interface Student {
-    nim: string | null;
-    name: string | null;
-    prodi: string | null;
-    kelas: string | null;
-    totalHours: number;
+  nim: string | null;
+  name: string | null;
+  prodi: string | null;
+  kelas: string | null;
+  totalHours: number;
 }
 
 interface Stats {
-    totalStudents: number;
-    studentsWithDebt: number;
-    totalDebtHours: number;
-    averageDebt: number;
+  totalStudents: number;
+  studentsWithDebt: number;
+  totalDebtHours: number;
+  averageDebt: number;
 }
 
 export default function ReportClient({
-    students,
-    stats,
-    kelasList
+  students,
+  stats,
+  kelasList,
 }: {
-    students: Student[];
-    stats: Stats;
-    kelasList: string[];
+  students: Student[];
+  stats: Stats;
+  kelasList: string[];
 }) {
-    const [selectedKelas, setSelectedKelas] = useState("");
-    const [reportType, setReportType] = useState<"summary" | "detail">("summary");
+  const [selectedKelas, setSelectedKelas] = useState("");
+  const [reportType, setReportType] = useState<"summary" | "detail">("summary");
 
-    const filteredStudents = selectedKelas
-        ? students.filter(s => s.kelas === selectedKelas)
-        : students;
+  const filteredStudents = selectedKelas
+    ? students.filter((s) => s.kelas === selectedKelas)
+    : students;
 
-    const generatePDF = () => {
-        const printWindow = window.open('', '_blank');
-        if (!printWindow) return;
+  const generatePDF = () => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
 
-        const now = new Date().toLocaleString('id-ID', {
-            dateStyle: 'long',
-            timeStyle: 'short'
-        });
+    const now = new Date().toLocaleString("id-ID", {
+      dateStyle: "long",
+      timeStyle: "short",
+    });
 
-        let tableRows = '';
-        if (reportType === 'detail') {
-            tableRows = filteredStudents.map((s, i) => `
+    let tableRows = "";
+    if (reportType === "detail") {
+      tableRows = filteredStudents
+        .map(
+          (s, i) => `
                 <tr>
                     <td>${i + 1}</td>
-                    <td>${s.nim || '-'}</td>
-                    <td>${s.name || '-'}</td>
-                    <td>${s.kelas || '-'}</td>
-                    <td class="${s.totalHours > 0 ? 'debt' : ''}">${s.totalHours}</td>
+                    <td>${s.nim || "-"}</td>
+                    <td>${s.name || "-"}</td>
+                    <td>${s.kelas || "-"}</td>
+                    <td class="${s.totalHours > 0 ? "debt" : ""}">${s.totalHours}</td>
                 </tr>
-            `).join('');
-        }
+            `,
+        )
+        .join("");
+    }
 
-        const kelasGroups: Record<string, { count: number; totalHours: number; withDebt: number }> = {};
-        filteredStudents.forEach(s => {
-            const kelas = s.kelas || 'Tidak ada kelas';
-            if (!kelasGroups[kelas]) {
-                kelasGroups[kelas] = { count: 0, totalHours: 0, withDebt: 0 };
-            }
-            kelasGroups[kelas].count++;
-            kelasGroups[kelas].totalHours += s.totalHours;
-            if (s.totalHours > 0) kelasGroups[kelas].withDebt++;
-        });
+    const kelasGroups: Record<
+      string,
+      { count: number; totalHours: number; withDebt: number }
+    > = {};
+    filteredStudents.forEach((s) => {
+      const kelas = s.kelas || "Tidak ada kelas";
+      if (!kelasGroups[kelas]) {
+        kelasGroups[kelas] = { count: 0, totalHours: 0, withDebt: 0 };
+      }
+      kelasGroups[kelas].count++;
+      kelasGroups[kelas].totalHours += s.totalHours;
+      if (s.totalHours > 0) kelasGroups[kelas].withDebt++;
+    });
 
-        const summaryRows = Object.entries(kelasGroups)
-            .sort(([a], [b]) => a.localeCompare(b))
-            .map(([kelas, data]) => `
+    const summaryRows = Object.entries(kelasGroups)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(
+        ([kelas, data]) => `
                 <tr>
                     <td>${kelas}</td>
                     <td>${data.count}</td>
@@ -77,9 +92,11 @@ export default function ReportClient({
                     <td class="debt">${data.totalHours}</td>
                     <td>${data.count > 0 ? Math.round(data.totalHours / data.count) : 0}</td>
                 </tr>
-            `).join('');
+            `,
+      )
+      .join("");
 
-        const html = `
+    const html = `
             <!DOCTYPE html>
             <html>
             <head>
@@ -171,7 +188,7 @@ export default function ReportClient({
                 <div class="header">
                     <h1>LAPORAN KOMPENSASI MAHASISWA</h1>
                     <h2>Sistem Informasi Kompensasi - Politeknik Negeri Jakarta</h2>
-                    <p>Dicetak pada: ${now}${selectedKelas ? ` | Filter: ${selectedKelas}` : ''}</p>
+                    <p>Dicetak pada: ${now}${selectedKelas ? ` | Filter: ${selectedKelas}` : ""}</p>
                 </div>
 
                 <div class="stats">
@@ -180,7 +197,7 @@ export default function ReportClient({
                         <div class="stat-label">Total Mahasiswa</div>
                     </div>
                     <div class="stat-item">
-                        <div class="stat-value" style="color: #dc3545;">${filteredStudents.filter(s => s.totalHours > 0).length}</div>
+                        <div class="stat-value" style="color: #dc3545;">${filteredStudents.filter((s) => s.totalHours > 0).length}</div>
                         <div class="stat-label">Berhutang</div>
                     </div>
                     <div class="stat-item">
@@ -189,7 +206,9 @@ export default function ReportClient({
                     </div>
                 </div>
 
-                ${reportType === 'summary' ? `
+                ${
+                  reportType === "summary"
+                    ? `
                     <h3>Ringkasan Per Kelas</h3>
                     <table>
                         <thead>
@@ -205,7 +224,8 @@ export default function ReportClient({
                             ${summaryRows}
                         </tbody>
                     </table>
-                ` : `
+                `
+                    : `
                     <h3>Detail Mahasiswa</h3>
                     <table>
                         <thead>
@@ -221,7 +241,8 @@ export default function ReportClient({
                             ${tableRows}
                         </tbody>
                     </table>
-                `}
+                `
+                }
 
                 <div class="footer">
                     <p>Dokumen ini dihasilkan secara otomatis oleh SiKompen © ${new Date().getFullYear()}</p>
@@ -230,119 +251,147 @@ export default function ReportClient({
             </html>
         `;
 
-        printWindow.document.write(html);
-        printWindow.document.close();
-        printWindow.print();
-    };
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.print();
+  };
 
-    return (
-        <div className="pt-8 px-4 sm:px-8 max-w-6xl mx-auto min-h-screen pb-12 space-y-8">
-            <header>
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#008C9D]/10 text-[#008C9D] text-xs font-bold uppercase tracking-wider mb-4">
-                    <FileText size={14} />
-                    <span>Reporting</span>
-                </div>
-                <h1 className="text-4xl font-black text-gray-900 tracking-tight mb-3">
-                    Laporan Kompensasi
-                </h1>
-                <p className="text-lg text-gray-500 max-w-2xl">
-                    Generate dan unduh rekapitulasi data kompensasi mahasiswa dalam format PDF untuk keperluan administrasi.
-                </p>
-            </header>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-white rounded-[2rem] p-6 border border-gray-100 shadow-sm hover:shadow-md transition-all group">
-                    <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center mb-4 text-blue-600 group-hover:scale-110 transition-transform">
-                        <Users size={24} />
-                    </div>
-                    <p className="text-sm font-medium text-gray-500 mb-1">Total Mahasiswa</p>
-                    <p className="text-3xl font-black text-gray-900">{stats.totalStudents}</p>
-                </div>
-
-                <div className="bg-white rounded-[2rem] p-6 border border-gray-100 shadow-sm hover:shadow-md transition-all group">
-                    <div className="w-12 h-12 bg-red-50 rounded-2xl flex items-center justify-center mb-4 text-red-600 group-hover:scale-110 transition-transform">
-                        <AlertTriangle size={24} />
-                    </div>
-                    <p className="text-sm font-medium text-gray-500 mb-1">Berhutang</p>
-                    <p className="text-3xl font-black text-red-600">{stats.studentsWithDebt}</p>
-                </div>
-
-                <div className="bg-white rounded-[2rem] p-6 border border-gray-100 shadow-sm hover:shadow-md transition-all group">
-                    <div className="w-12 h-12 bg-orange-50 rounded-2xl flex items-center justify-center mb-4 text-orange-600 group-hover:scale-110 transition-transform">
-                        <Clock size={24} />
-                    </div>
-                    <p className="text-sm font-medium text-gray-500 mb-1">Total Jam Hutang</p>
-                    <p className="text-3xl font-black text-green-900">{stats.totalDebtHours}</p>
-                </div>
-
-                <div className="bg-white rounded-[2rem] p-6 border border-gray-100 shadow-sm hover:shadow-md transition-all group">
-                    <div className="w-12 h-12 bg-purple-50 rounded-2xl flex items-center justify-center mb-4 text-purple-600 group-hover:scale-110 transition-transform">
-                        <TrendingUp size={24} />
-                    </div>
-                    <p className="text-sm font-medium text-gray-500 mb-1">Rata-rata Hutang</p>
-                    <p className="text-3xl font-black text-gray-900">{stats.averageDebt} <span className="text-sm font-normal text-gray-400">jam</span></p>
-                </div>
-            </div>
-
-            <div className="bg-white rounded-[2.5rem] p-8 border border-gray-100 shadow-lg shadow-gray-100/50">
-                <div className="mb-8">
-                    <h3 className="text-xl font-bold text-gray-900 mb-2">Konfigurasi Laporan</h3>
-                    <p className="text-gray-500">Sesuaikan filter dan jenis laporan yang ingin dicetak.</p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-                    <div className="space-y-3">
-                        <label className="text-sm font-bold text-gray-700 uppercase tracking-wide">Jenis Laporan</label>
-                        <div className="grid grid-cols-2 gap-3 p-1.5 bg-gray-50 rounded-2xl border border-gray-100">
-                            <button
-                                onClick={() => setReportType("summary")}
-                                className={`py-3 px-4 rounded-xl font-bold text-sm transition-all duration-300 ${reportType === "summary"
-                                    ? "bg-white text-[#008C9D] shadow-sm ring-1 ring-gray-100"
-                                    : "text-gray-400 hover:text-gray-600 hover:bg-white/50"
-                                    }`}
-                            >
-                                Ringkasan
-                            </button>
-                            <button
-                                onClick={() => setReportType("detail")}
-                                className={`py-3 px-4 rounded-xl font-bold text-sm transition-all duration-300 ${reportType === "detail"
-                                    ? "bg-white text-[#008C9D] shadow-sm ring-1 ring-gray-100"
-                                    : "text-gray-400 hover:text-gray-600 hover:bg-white/50"
-                                    }`}
-                            >
-                                Detail Mahasiswa
-                            </button>
-                        </div>
-                    </div>
-
-                    <div className="space-y-3">
-                        <label className="text-sm font-bold text-gray-700 uppercase tracking-wide">Filter Kelas</label>
-                        <div className="relative">
-                            <select
-                                value={selectedKelas}
-                                onChange={(e) => setSelectedKelas(e.target.value)}
-                                className="w-full h-[54px] px-4 rounded-2xl border border-gray-200 bg-white text-gray-900 font-medium focus:border-[#008C9D] focus:ring-4 focus:ring-[#008C9D]/10 outline-none transition-all appearance-none cursor-pointer"
-                            >
-                                <option value="">Semua Kelas</option>
-                                {kelasList.sort().map(k => (
-                                    <option key={k} value={k}>{k}</option>
-                                ))}
-                            </select>
-                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                                <Users size={18} />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <button
-                    onClick={generatePDF}
-                    className="w-full py-4 bg-[#008C9D] text-white rounded-2xl font-bold hover:bg-[#007A8A] transition-all shadow-lg shadow-[#008C9D]/25 hover:shadow-xl hover:shadow-[#008C9D]/30 active:scale-[0.99] flex items-center justify-center gap-3"
-                >
-                    <Download size={20} />
-                    <span>Generate PDF Document</span>
-                </button>
-            </div>
+  return (
+    <div className="mx-auto min-h-screen max-w-6xl space-y-8 px-4 pt-8 pb-12 sm:px-8">
+      <header>
+        <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-[#008C9D]/10 px-3 py-1 text-xs font-bold tracking-wider text-[#008C9D] uppercase">
+          <FileText size={14} />
+          <span>Reporting</span>
         </div>
-    );
+        <h1 className="mb-3 text-4xl font-black tracking-tight text-gray-900">
+          Laporan Kompensasi
+        </h1>
+        <p className="max-w-2xl text-lg text-gray-500">
+          Generate dan unduh rekapitulasi data kompensasi mahasiswa dalam format
+          PDF untuk keperluan administrasi.
+        </p>
+      </header>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="group rounded-[2rem] border border-gray-100 bg-white p-6 shadow-sm transition-all hover:shadow-md">
+          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 transition-transform group-hover:scale-110">
+            <Users size={24} />
+          </div>
+          <p className="mb-1 text-sm font-medium text-gray-500">
+            Total Mahasiswa
+          </p>
+          <p className="text-3xl font-black text-gray-900">
+            {stats.totalStudents}
+          </p>
+        </div>
+
+        <div className="group rounded-[2rem] border border-gray-100 bg-white p-6 shadow-sm transition-all hover:shadow-md">
+          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 text-red-600 transition-transform group-hover:scale-110">
+            <AlertTriangle size={24} />
+          </div>
+          <p className="mb-1 text-sm font-medium text-gray-500">Berhutang</p>
+          <p className="text-3xl font-black text-red-600">
+            {stats.studentsWithDebt}
+          </p>
+        </div>
+
+        <div className="group rounded-[2rem] border border-gray-100 bg-white p-6 shadow-sm transition-all hover:shadow-md">
+          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-50 text-orange-600 transition-transform group-hover:scale-110">
+            <Clock size={24} />
+          </div>
+          <p className="mb-1 text-sm font-medium text-gray-500">
+            Total Jam Hutang
+          </p>
+          <p className="text-3xl font-black text-green-900">
+            {stats.totalDebtHours}
+          </p>
+        </div>
+
+        <div className="group rounded-[2rem] border border-gray-100 bg-white p-6 shadow-sm transition-all hover:shadow-md">
+          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-50 text-purple-600 transition-transform group-hover:scale-110">
+            <TrendingUp size={24} />
+          </div>
+          <p className="mb-1 text-sm font-medium text-gray-500">
+            Rata-rata Hutang
+          </p>
+          <p className="text-3xl font-black text-gray-900">
+            {stats.averageDebt}{" "}
+            <span className="text-sm font-normal text-gray-400">jam</span>
+          </p>
+        </div>
+      </div>
+
+      <div className="rounded-[2.5rem] border border-gray-100 bg-white p-8 shadow-lg shadow-gray-100/50">
+        <div className="mb-8">
+          <h3 className="mb-2 text-xl font-bold text-gray-900">
+            Konfigurasi Laporan
+          </h3>
+          <p className="text-gray-500">
+            Sesuaikan filter dan jenis laporan yang ingin dicetak.
+          </p>
+        </div>
+
+        <div className="mb-8 grid grid-cols-1 gap-8 md:grid-cols-2">
+          <div className="space-y-3">
+            <label className="text-sm font-bold tracking-wide text-gray-700 uppercase">
+              Jenis Laporan
+            </label>
+            <div className="grid grid-cols-2 gap-3 rounded-2xl border border-gray-100 bg-gray-50 p-1.5">
+              <button
+                onClick={() => setReportType("summary")}
+                className={`rounded-xl px-4 py-3 text-sm font-bold transition-all duration-300 ${
+                  reportType === "summary"
+                    ? "bg-white text-[#008C9D] shadow-sm ring-1 ring-gray-100"
+                    : "text-gray-400 hover:bg-white/50 hover:text-gray-600"
+                }`}
+              >
+                Ringkasan
+              </button>
+              <button
+                onClick={() => setReportType("detail")}
+                className={`rounded-xl px-4 py-3 text-sm font-bold transition-all duration-300 ${
+                  reportType === "detail"
+                    ? "bg-white text-[#008C9D] shadow-sm ring-1 ring-gray-100"
+                    : "text-gray-400 hover:bg-white/50 hover:text-gray-600"
+                }`}
+              >
+                Detail Mahasiswa
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <label className="text-sm font-bold tracking-wide text-gray-700 uppercase">
+              Filter Kelas
+            </label>
+            <div className="relative">
+              <select
+                value={selectedKelas}
+                onChange={(e) => setSelectedKelas(e.target.value)}
+                className="h-[54px] w-full cursor-pointer appearance-none rounded-2xl border border-gray-200 bg-white px-4 font-medium text-gray-900 transition-all outline-none focus:border-[#008C9D] focus:ring-4 focus:ring-[#008C9D]/10"
+              >
+                <option value="">Semua Kelas</option>
+                {kelasList.sort().map((k) => (
+                  <option key={k} value={k}>
+                    {k}
+                  </option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2 text-gray-400">
+                <Users size={18} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <button
+          onClick={generatePDF}
+          className="flex w-full items-center justify-center gap-3 rounded-2xl bg-[#008C9D] py-4 font-bold text-white shadow-lg shadow-[#008C9D]/25 transition-all hover:bg-[#007A8A] hover:shadow-xl hover:shadow-[#008C9D]/30 active:scale-[0.99]"
+        >
+          <Download size={20} />
+          <span>Generate PDF Document</span>
+        </button>
+      </div>
+    </div>
+  );
 }

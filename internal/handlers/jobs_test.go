@@ -41,7 +41,9 @@ func TestCreateJob_Success(t *testing.T) {
 	}
 
 	var resp map[string]interface{}
-	json.Unmarshal(w.Body.Bytes(), &resp)
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
 	if resp["title"] != "Clean Library" {
 		t.Errorf("expected title 'Clean Library', got '%v'", resp["title"])
 	}
@@ -71,7 +73,9 @@ func TestGetJobs_Success(t *testing.T) {
 	}
 
 	var jobs []map[string]interface{}
-	json.Unmarshal(w.Body.Bytes(), &jobs)
+	if err := json.Unmarshal(w.Body.Bytes(), &jobs); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
 	if len(jobs) != 2 {
 		t.Errorf("expected 2 jobs, got %d", len(jobs))
 	}
@@ -125,7 +129,9 @@ func TestToggleStatus_Success(t *testing.T) {
 	}
 
 	var resp map[string]interface{}
-	json.Unmarshal(w.Body.Bytes(), &resp)
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
 	if resp["status"] != "CLOSED" {
 		t.Errorf("expected status 'CLOSED', got '%v'", resp["status"])
 	}

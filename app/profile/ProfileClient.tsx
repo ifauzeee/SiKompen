@@ -2,136 +2,142 @@
 
 import { useState } from "react";
 import { changePassword } from "@/app/actions/auth";
-import {
-    Lock,
-    Check,
-    AlertCircle,
-} from "lucide-react";
+import { Lock, Check, AlertCircle } from "lucide-react";
 
 export default function ProfileClient() {
-    const [currentPassword, setCurrentPassword] = useState("");
-    const [newPassword, setNewPassword] = useState("");
-    const [confirmPassword, setConfirmPassword] = useState("");
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState("");
-    const [success, setSuccess] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
 
-    async function handleChangePassword(e: React.FormEvent) {
-        e.preventDefault();
-        setError("");
+  async function handleChangePassword(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
 
-        if (newPassword !== confirmPassword) {
-            setError("Password baru tidak cocok.");
-            return;
-        }
-
-        setLoading(true);
-        const result = await changePassword(currentPassword, newPassword);
-        setLoading(false);
-
-        if (result.error) {
-            setError(result.error);
-        } else {
-            setSuccess(true);
-            setCurrentPassword("");
-            setNewPassword("");
-            setConfirmPassword("");
-            setTimeout(() => {
-                setSuccess(false);
-            }, 2000);
-        }
+    if (newPassword !== confirmPassword) {
+      setError("Password baru tidak cocok.");
+      return;
     }
 
-    return (
-        <div className="pt-8 px-4 sm:px-8 max-w-[1600px] mx-auto min-h-screen pb-12 space-y-8">
-            <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-4">
-                <div>
-                    <h1 className="text-3xl md:text-5xl font-black text-gray-900 tracking-tight mb-2">Profil Saya</h1>
-                    <p className="text-gray-500 text-sm md:text-lg font-medium">Kelola informasi akun dan keamanan Anda.</p>
-                </div>
-            </header>
+    setLoading(true);
+    const result = await changePassword(currentPassword, newPassword);
+    setLoading(false);
 
-            <div className="bg-white rounded-[1.5rem] md:rounded-[2.5rem] p-4 md:p-8 border border-gray-100 shadow-sm">
-                <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                    <Lock className="text-[#008C9D]" size={24} />
-                    Ubah Password
-                </h2>
+    if (result.error) {
+      setError(result.error);
+    } else {
+      setSuccess(true);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setTimeout(() => {
+        setSuccess(false);
+      }, 2000);
+    }
+  }
 
-                <form onSubmit={handleChangePassword} className="space-y-6">
-                    {error && (
-                        <div className="p-4 bg-red-50 text-red-600 rounded-xl flex items-center gap-3 text-sm font-medium animate-in fade-in slide-in-from-top-2">
-                            <AlertCircle size={18} className="shrink-0" />
-                            {error}
-                        </div>
-                    )}
-                    {success && (
-                        <div className="p-4 bg-green-50 text-green-600 rounded-xl flex items-center gap-3 text-sm font-medium animate-in fade-in slide-in-from-top-2">
-                            <Check size={18} className="shrink-0" />
-                            Password berhasil diubah!
-                        </div>
-                    )}
-
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <div className="space-y-2">
-                            <label className="block text-sm font-bold text-gray-700">Password Lama</label>
-                            <input
-                                type="password"
-                                value={currentPassword}
-                                onChange={(e) => setCurrentPassword(e.target.value)}
-                                required
-                                placeholder="Masukkan password saat ini"
-                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-[#008C9D] focus:ring-4 focus:ring-[#008C9D]/10 outline-none transition-all placeholder:text-gray-400 text-sm md:text-base"
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <label className="block text-sm font-bold text-gray-700">Password Baru</label>
-                            <input
-                                type="password"
-                                value={newPassword}
-                                onChange={(e) => setNewPassword(e.target.value)}
-                                required
-                                minLength={6}
-                                placeholder="Minimal 6 karakter"
-                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-[#008C9D] focus:ring-4 focus:ring-[#008C9D]/10 outline-none transition-all placeholder:text-gray-400 text-sm md:text-base"
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <label className="block text-sm font-bold text-gray-700">Konfirmasi Password</label>
-                            <input
-                                type="password"
-                                value={confirmPassword}
-                                onChange={(e) => setConfirmPassword(e.target.value)}
-                                required
-                                minLength={6}
-                                placeholder="Ulangi password baru"
-                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:border-[#008C9D] focus:ring-4 focus:ring-[#008C9D]/10 outline-none transition-all placeholder:text-gray-400 text-sm md:text-base"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="flex justify-end pt-2">
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="w-full md:w-auto px-8 py-3 bg-[#008C9D] text-white rounded-xl font-bold hover:shadow-lg hover:shadow-[#008C9D]/30 hover:bg-[#007A8A] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm md:text-base"
-                        >
-                            {loading ? (
-                                <>
-                                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                    <span>Menyimpan...</span>
-                                </>
-                            ) : (
-                                <>
-                                    <Check size={18} />
-                                    <span>Simpan Perubahan</span>
-                                </>
-                            )}
-                        </button>
-                    </div>
-                </form>
-            </div>
+  return (
+    <div className="mx-auto min-h-screen max-w-[1600px] space-y-8 px-4 pt-8 pb-12 sm:px-8">
+      <header className="mb-4 flex flex-col items-start justify-between gap-6 md:flex-row md:items-end">
+        <div>
+          <h1 className="mb-2 text-3xl font-black tracking-tight text-gray-900 md:text-5xl">
+            Profil Saya
+          </h1>
+          <p className="text-sm font-medium text-gray-500 md:text-lg">
+            Kelola informasi akun dan keamanan Anda.
+          </p>
         </div>
-    );
+      </header>
+
+      <div className="rounded-[1.5rem] border border-gray-100 bg-white p-4 shadow-sm md:rounded-[2.5rem] md:p-8">
+        <h2 className="mb-6 flex items-center gap-2 text-xl font-bold text-gray-900">
+          <Lock className="text-[#008C9D]" size={24} />
+          Ubah Password
+        </h2>
+
+        <form onSubmit={handleChangePassword} className="space-y-6">
+          {error && (
+            <div className="animate-in fade-in slide-in-from-top-2 flex items-center gap-3 rounded-xl bg-red-50 p-4 text-sm font-medium text-red-600">
+              <AlertCircle size={18} className="shrink-0" />
+              {error}
+            </div>
+          )}
+          {success && (
+            <div className="animate-in fade-in slide-in-from-top-2 flex items-center gap-3 rounded-xl bg-green-50 p-4 text-sm font-medium text-green-600">
+              <Check size={18} className="shrink-0" />
+              Password berhasil diubah!
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <div className="space-y-2">
+              <label className="block text-sm font-bold text-gray-700">
+                Password Lama
+              </label>
+              <input
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                required
+                placeholder="Masukkan password saat ini"
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm transition-all outline-none placeholder:text-gray-400 focus:border-[#008C9D] focus:bg-white focus:ring-4 focus:ring-[#008C9D]/10 md:text-base"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-sm font-bold text-gray-700">
+                Password Baru
+              </label>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                required
+                minLength={6}
+                placeholder="Minimal 6 karakter"
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm transition-all outline-none placeholder:text-gray-400 focus:border-[#008C9D] focus:bg-white focus:ring-4 focus:ring-[#008C9D]/10 md:text-base"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-sm font-bold text-gray-700">
+                Konfirmasi Password
+              </label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                minLength={6}
+                placeholder="Ulangi password baru"
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm transition-all outline-none placeholder:text-gray-400 focus:border-[#008C9D] focus:bg-white focus:ring-4 focus:ring-[#008C9D]/10 md:text-base"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-2">
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#008C9D] px-8 py-3 text-sm font-bold text-white transition-all hover:bg-[#007A8A] hover:shadow-lg hover:shadow-[#008C9D]/30 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 md:w-auto md:text-base"
+            >
+              {loading ? (
+                <>
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                  <span>Menyimpan...</span>
+                </>
+              ) : (
+                <>
+                  <Check size={18} />
+                  <span>Simpan Perubahan</span>
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
 }

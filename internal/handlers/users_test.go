@@ -90,7 +90,9 @@ func TestGetUsers_Success(t *testing.T) {
 	}
 
 	var users []map[string]interface{}
-	json.Unmarshal(w.Body.Bytes(), &users)
+	if err := json.Unmarshal(w.Body.Bytes(), &users); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
 	if len(users) != 2 {
 		t.Errorf("expected 2 users, got %d", len(users))
 	}
