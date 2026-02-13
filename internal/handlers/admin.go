@@ -5,20 +5,22 @@ import (
 	"fmt"
 	"net/http"
 	"sikompen-backend/internal/models"
+	"sikompen-backend/internal/repository"
+	"sikompen-backend/internal/utils"
 	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
-	"gorm.io/gorm"
 )
 
 type AdminHandler struct {
-	DB *gorm.DB
+	AdminRepo repository.AdminRepository
+	UserRepo  repository.UserRepository
 }
 
-func NewAdminHandler(db *gorm.DB) *AdminHandler {
-	return &AdminHandler{DB: db}
+func NewAdminHandler(adminRepo repository.AdminRepository, userRepo repository.UserRepository) *AdminHandler {
+	return &AdminHandler{AdminRepo: adminRepo, UserRepo: userRepo}
 }
 
 type UpdateHoursRequest struct {
@@ -38,39 +40,30 @@ func (h *AdminHandler) UpdateStudentHours(c *gin.Context) {
 
 	adminId, _ := c.Get("userId")
 
-	err := h.DB.Transaction(func(tx *gorm.DB) error {
-		var student models.User
-		if err := tx.First(&student, uint(studentId)).Error; err != nil {
-			return fmt.Errorf("student not found")
-		}
+	student, err := h.UserRepo.GetByID(uint(studentId))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "student not found"})
+		return
+	}
 
-		oldHours := student.TotalHours
-		student.TotalHours = req.NewHours
-		if student.TotalHours < 0 {
-			student.TotalHours = 0
-		}
+	oldHours := student.TotalHours
+	student.TotalHours = req.NewHours
+	if student.TotalHours < 0 {
+		student.TotalHours = 0
+	}
 
-		if err := tx.Save(&student).Error; err != nil {
-			return err
-		}
+	if err := h.UserRepo.Update(student); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to update student"})
+		return
+	}
 
-		details, _ := json.Marshal(map[string]interface{}{
-			"studentName": student.Name,
-			"oldHours":    oldHours,
-			"newHours":    student.TotalHours,
-			"reason":      req.Reason,
-		})
-
-		tx.Create(&models.ActivityLog{
-			UserID:     ptrUint(adminId.(uint)),
-			Action:     "UPDATE_HOURS",
-			TargetType: "USER",
-			TargetID:   ptrUint(uint(studentId)),
-			Details:    ptrString(string(details)),
-			CreatedAt:  time.Now(),
-		})
-
-		return nil
+	err = h.AdminRepo.CreateActivityLog(&models.ActivityLog{
+		UserID:     utils.PtrUint(adminId.(uint)),
+		Action:     "UPDATE_STUDENT_HOURS",
+		TargetType: "USER",
+		TargetID:   utils.PtrUint(uint(studentId)),
+		Details:    utils.PtrString(fmt.Sprintf("Hours updated from %d to %d. Reason: %s", oldHours, req.NewHours, req.Reason)),
+		CreatedAt:  time.Now(),
 	})
 
 	if err != nil {
@@ -85,8 +78,8 @@ func (h *AdminHandler) GetActivityLogs(c *gin.Context) {
 	limitStr := c.DefaultQuery("limit", "50")
 	limit, _ := strconv.Atoi(limitStr)
 
-	var logs []models.ActivityLog
-	if err := h.DB.Order("created_at desc").Limit(limit).Find(&logs).Error; err != nil {
+	logs, err := h.AdminRepo.GetActivityLogs(limit)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch logs"})
 		return
 	}
@@ -95,8 +88,8 @@ func (h *AdminHandler) GetActivityLogs(c *gin.Context) {
 }
 
 func (h *AdminHandler) GetSystemSettings(c *gin.Context) {
-	var settings []models.SystemSettings
-	if err := h.DB.Find(&settings).Error; err != nil {
+	settings, err := h.AdminRepo.GetSystemSettings()
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch settings"})
 		return
 	}
@@ -117,48 +110,31 @@ func (h *AdminHandler) UpdateSystemSetting(c *gin.Context) {
 
 	adminId, _ := c.Get("userId")
 
-	err := h.DB.Transaction(func(tx *gorm.DB) error {
-		var setting models.SystemSettings
-		err := tx.Where("key = ?", key).First(&setting).Error
-		if err != nil {
-
-			setting = models.SystemSettings{
-				Key:       key,
-				Value:     req.Value,
-				UpdatedAt: time.Now(),
-			}
-			if err := tx.Create(&setting).Error; err != nil {
-				return err
-			}
-		} else {
-
-			setting.Value = req.Value
-			setting.UpdatedAt = time.Now()
-			if err := tx.Save(&setting).Error; err != nil {
-				return err
-			}
-		}
-
-		details, _ := json.Marshal(map[string]interface{}{
-			"key":   key,
-			"value": req.Value,
-		})
-
-		tx.Create(&models.ActivityLog{
-			UserID:     ptrUint(adminId.(uint)),
-			Action:     "UPDATE_SETTINGS",
-			TargetType: "SYSTEM",
-			Details:    ptrString(string(details)),
-			CreatedAt:  time.Now(),
-		})
-
-		return nil
-	})
-
+	setting, err := h.AdminRepo.GetSystemSettingByKey(key)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		setting = &models.SystemSettings{
+			Key:       key,
+			Value:     req.Value,
+			UpdatedAt: time.Now(),
+		}
+	} else {
+		setting.Value = req.Value
+		setting.UpdatedAt = time.Now()
+	}
+
+	if err := h.AdminRepo.UpdateSystemSetting(setting); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update setting"})
 		return
 	}
+
+	_ = h.AdminRepo.CreateActivityLog(&models.ActivityLog{
+		UserID:     utils.PtrUint(adminId.(uint)),
+		Action:     "UPDATE_SETTING",
+		TargetType: "SETTING",
+		TargetID:   utils.PtrUint(setting.ID),
+		Details:    utils.PtrString(fmt.Sprintf("Key: %s, Value: %s", setting.Key, setting.Value)),
+		CreatedAt:  time.Now(),
+	})
 
 	c.JSON(http.StatusOK, gin.H{"success": true})
 }
@@ -200,7 +176,7 @@ func (h *AdminHandler) ImportStudents(c *gin.Context) {
 			TotalHours: 0,
 		}
 
-		if err := h.DB.Create(&user).Error; err != nil {
+		if err := h.UserRepo.Create(&user); err != nil {
 			skipCount++
 		} else {
 			successCount++
@@ -213,11 +189,11 @@ func (h *AdminHandler) ImportStudents(c *gin.Context) {
 		"errorCount":   errorCount,
 	})
 
-	h.DB.Create(&models.ActivityLog{
-		UserID:     ptrUint(adminId.(uint)),
+	_ = h.AdminRepo.CreateActivityLog(&models.ActivityLog{
+		UserID:     utils.PtrUint(adminId.(uint)),
 		Action:     "IMPORT_STUDENTS",
 		TargetType: "USER",
-		Details:    ptrString(string(details)),
+		Details:    utils.PtrString(string(details)),
 		CreatedAt:  time.Now(),
 	})
 
@@ -234,30 +210,48 @@ func (h *AdminHandler) GetStudentsForExport(c *gin.Context) {
 	kelas := c.Query("kelas")
 	hasDebt := c.Query("hasDebt") == "true"
 
-	query := h.DB.Model(&models.User{}).Where("role = ?", "MAHASISWA")
-
+	filters := map[string]interface{}{
+		"role": "MAHASISWA",
+	}
 	if prodi != "" {
-		query = query.Where("prodi = ?", prodi)
+		filters["prodi"] = prodi
 	}
 	if kelas != "" {
-		query = query.Where("kelas = ?", kelas)
-	}
-	if hasDebt {
-		query = query.Where("total_hours > 0")
+		filters["kelas"] = kelas
 	}
 
-	var students []struct {
+	students, err := h.UserRepo.GetAll(filters)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch students"})
+		return
+	}
+
+	result := []struct {
 		NIM        string `json:"nim"`
 		Name       string `json:"name"`
 		Prodi      string `json:"prodi"`
 		Kelas      string `json:"kelas"`
 		TotalHours int    `json:"totalHours"`
+	}{}
+
+	for _, s := range students {
+		if hasDebt && s.TotalHours <= 0 {
+			continue
+		}
+		result = append(result, struct {
+			NIM        string `json:"nim"`
+			Name       string `json:"name"`
+			Prodi      string `json:"prodi"`
+			Kelas      string `json:"kelas"`
+			TotalHours int    `json:"totalHours"`
+		}{
+			NIM:        *s.NIM,
+			Name:       *s.Name,
+			Prodi:      *s.Prodi,
+			Kelas:      *s.Kelas,
+			TotalHours: s.TotalHours,
+		})
 	}
 
-	if err := query.Order("kelas asc, name asc").Find(&students).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch students"})
-		return
-	}
-
-	c.JSON(http.StatusOK, students)
+	c.JSON(http.StatusOK, result)
 }

@@ -166,7 +166,7 @@ export default function ClearanceClient({
 
   const [isPaying, setIsPaying] = useState(false);
   const [payHours] = useState<number>(currentDebt);
-  const [proofFile, setProofFile] = useState<string | null>(null);
+  const [proofFile, setProofFile] = useState<File | null>(null);
   const [isSubmitting, startTransition] = useTransition();
 
   const RATE_PER_HOUR = 10000;
@@ -218,13 +218,14 @@ export default function ClearanceClient({
     if (!confirmed) return;
 
     startTransition(async () => {
-      const res = await createPayment(
-        userId,
-        totalAmount,
-        payHours,
-        proofFile,
-        "Pembayaran Mandiri via Web",
-      );
+      const formData = new FormData();
+      formData.append("userId", userId.toString());
+      formData.append("amount", totalAmount.toString());
+      formData.append("hoursEquivalent", payHours.toString());
+      formData.append("proof", proofFile as File);
+      formData.append("note", "Pembayaran Mandiri via Web");
+
+      const res = await createPayment(formData);
 
       if (res.error) {
         showAlert(res.error, "Gagal");
@@ -267,7 +268,7 @@ export default function ClearanceClient({
       </header>
 
       {isPaying && !isEligible && (
-        <div className="pos animate-in slide-in-from-top-4 mb-8 rounded-[1.5rem] border border-gray-100 bg-white p-4 shadow-xl shadow-gray-100/50 duration-500 md:rounded-[2.5rem] md:p-8">
+        <div className="pos animate-in slide-in-from-top-4 mb-8 rounded-3xl border border-gray-100 bg-white p-4 shadow-xl shadow-gray-100/50 duration-500 md:rounded-[2.5rem] md:p-8">
           <h3 className="mb-6 flex items-center gap-3 text-xl font-bold text-gray-900 md:text-2xl">
             <Wallet className="text-[#008C9D]" />
             Form Pembayaran Kompen
@@ -312,27 +313,31 @@ export default function ClearanceClient({
 
               <div className="space-y-4">
                 <label className="text-sm font-bold text-gray-700">
-                  Bukti Transfer (Link)
+                  Bukti Transfer (File)
                 </label>
                 <div className="space-y-2">
                   <input
-                    type="url"
-                    placeholder="Paste link Google Drive / Dropbox di sini..."
-                    value={proofFile || ""}
-                    onChange={(e) => setProofFile(e.target.value)}
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setProofFile(e.target.files?.[0] || null)}
                     className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm font-medium transition-all outline-none placeholder:font-normal placeholder:text-gray-400 focus:border-[#008C9D] focus:ring-4 focus:ring-[#008C9D]/10 md:text-base"
                   />
+                  {proofFile && (
+                    <p className="mt-1 text-xs text-gray-500">
+                      Selected: {proofFile.name}
+                    </p>
+                  )}
                   <p className="text-xs leading-relaxed text-gray-400">
-                    *Silahkan upload bukti transfer ke Google Drive/Cloud
-                    Storage Anda, pastikan akses link dibuka untuk publik
-                    (Anyone with the link), lalu tempel linknya di sini.
+                    *Silahkan upload foto bukti transfer asli (struk ATM /
+                    screenshot m-banking). Pastikan nominal dan tanggal terlihat
+                    jelas.
                   </p>
                 </div>
 
-                {proofFile && proofFile.length > 10 && (
+                {proofFile && (
                   <div className="flex items-center gap-2 rounded-xl border border-green-100 bg-green-50 px-4 py-3 font-bold text-green-600">
                     <CheckCircle2 size={20} />
-                    <span className="text-sm">Link siap dikirim</span>
+                    <span className="text-sm">File siap dikirim</span>
                   </div>
                 )}
               </div>
@@ -415,7 +420,7 @@ export default function ClearanceClient({
                 className="group -mx-4 flex items-start gap-4 rounded-3xl border-b border-gray-100 px-4 py-6 transition-all duration-300 hover:bg-gray-50/80 md:-mx-6 md:gap-6 md:px-6 md:py-8"
               >
                 <div
-                  className={`mt-1 flex h-8 w-8 flex-shrink-0 transform items-center justify-center rounded-full transition-colors duration-300 group-hover:scale-110 ${req.Met ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"}`}
+                  className={`mt-1 flex h-8 w-8 shrink-0 transform items-center justify-center rounded-full transition-colors duration-300 group-hover:scale-110 ${req.Met ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"}`}
                 >
                   {req.Met ? (
                     <CheckCircle2 className="h-5 w-5" />

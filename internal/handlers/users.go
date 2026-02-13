@@ -3,25 +3,25 @@ package handlers
 import (
 	"net/http"
 	"sikompen-backend/internal/models"
+	"sikompen-backend/internal/repository"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
-	"gorm.io/gorm"
 )
 
 type UserHandler struct {
-	DB *gorm.DB
+	UserRepo repository.UserRepository
 }
 
-func NewUserHandler(db *gorm.DB) *UserHandler {
-	return &UserHandler{DB: db}
+func NewUserHandler(userRepo repository.UserRepository) *UserHandler {
+	return &UserHandler{UserRepo: userRepo}
 }
 
 type CreateUserRequest struct {
 	Name       string `json:"name" binding:"required"`
 	Username   string `json:"username" binding:"required"`
-	Password   string `json:"password" binding:"required,min=6"`
+	Password   string `json:"password" binding:"required,min=3"`
 	Role       string `json:"role" binding:"required,oneof=MAHASISWA ADMIN KEUANGAN PENGAWAS"`
 	NIM        string `json:"nim"`
 	Prodi      string `json:"prodi"`
@@ -36,8 +36,7 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 		return
 	}
 
-	var existing models.User
-	if err := h.DB.Where("username = ?", req.Username).First(&existing).Error; err == nil {
+	if _, err := h.UserRepo.GetByUsername(req.Username); err == nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Username already exists"})
 		return
 	}
@@ -57,7 +56,7 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 		IsAdminClear:   true,
 	}
 
-	if err := h.DB.Create(&user).Error; err != nil {
+	if err := h.UserRepo.Create(&user); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
 		return
 	}
@@ -66,8 +65,8 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 }
 
 func (h *UserHandler) GetUsers(c *gin.Context) {
-	var users []models.User
-	if err := h.DB.Order("role asc").Find(&users).Error; err != nil {
+	users, err := h.UserRepo.GetAll(nil)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch users"})
 		return
 	}
@@ -86,7 +85,7 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 		return
 	}
 
-	if err := h.DB.Delete(&models.User{}, uid).Error; err != nil {
+	if err := h.UserRepo.Delete(uid); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete user"})
 		return
 	}
@@ -95,27 +94,18 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 }
 
 func (h *UserHandler) GetStats(c *gin.Context) {
-	var userCount, jobCount, appCount, paymentCount int64
-	h.DB.Model(&models.User{}).Count(&userCount)
-	h.DB.Model(&models.Job{}).Count(&jobCount)
-	h.DB.Model(&models.JobApplication{}).Count(&appCount)
-	h.DB.Model(&models.Payment{}).Count(&paymentCount)
+	stats, err := h.UserRepo.GetGlobalStats()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch stats"})
+		return
+	}
 
-	var totalDebt int64
-	h.DB.Model(&models.User{}).Select("sum(total_hours)").Scan(&totalDebt)
-
-	c.JSON(http.StatusOK, gin.H{
-		"users":        userCount,
-		"jobs":         jobCount,
-		"applications": appCount,
-		"payments":     paymentCount,
-		"totalDebt":    totalDebt,
-	})
+	c.JSON(http.StatusOK, stats)
 }
 
 type ChangePasswordRequest struct {
 	CurrentPassword string `json:"currentPassword" binding:"required"`
-	NewPassword     string `json:"newPassword" binding:"required,min=6"`
+	NewPassword     string `json:"newPassword" binding:"required,min=3"`
 }
 
 func (h *UserHandler) ChangePassword(c *gin.Context) {
@@ -128,8 +118,8 @@ func (h *UserHandler) ChangePassword(c *gin.Context) {
 	userId, _ := c.Get("userId")
 	uid := userId.(uint)
 
-	var user models.User
-	if err := h.DB.First(&user, uid).Error; err != nil {
+	user, err := h.UserRepo.GetByID(uid)
+	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}
@@ -145,7 +135,8 @@ func (h *UserHandler) ChangePassword(c *gin.Context) {
 		return
 	}
 
-	if err := h.DB.Model(&user).Update("password", string(hashedPassword)).Error; err != nil {
+	user.Password = string(hashedPassword)
+	if err := h.UserRepo.Update(user); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update password"})
 		return
 	}

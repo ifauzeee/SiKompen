@@ -42,7 +42,7 @@ export default function MyApplicationsClient({
   const [isPending, startTransition] = useTransition();
 
   const [proofForms, setProofForms] = useState<
-    Record<number, { proof1: string; proof2: string; note: string }>
+    Record<number, { proof1: File | null; proof2: File | null; note: string }>
   >({});
 
   const getStatusConfig = (status: Application["status"]) => {
@@ -106,7 +106,7 @@ export default function MyApplicationsClient({
   const handleProofChange = (
     appId: number,
     field: "proof1" | "proof2" | "note",
-    value: string,
+    value: string | File | null,
   ) => {
     setProofForms((prev) => ({
       ...prev,
@@ -120,27 +120,24 @@ export default function MyApplicationsClient({
   const handleSubmitProof = async (appId: number) => {
     const form = proofForms[appId];
     if (!form?.proof1 || !form?.proof2) {
-      showAlert(
-        "Mohon isi kedua link bukti foto (sebelum & sesudah).",
-        "Error",
-      );
+      showAlert("Mohon pilih kedua foto bukti (sebelum & sesudah).", "Error");
       return;
     }
 
     const confirmed = await showConfirm(
-      "Kirim bukti pengerjaan? Pastikan link foto sudah benar. Pengawas akan memverifikasi bukti Anda.",
+      "Kirim bukti pengerjaan? Pastikan foto sudah benar. Pengawas akan memverifikasi bukti Anda.",
       "Konfirmasi Pengiriman",
     );
 
     if (!confirmed) return;
 
     startTransition(async () => {
-      const res = await submitJobProof(
-        appId,
-        form.proof1,
-        form.proof2,
-        form.note || "",
-      );
+      const formData = new FormData();
+      formData.append("proof", form.proof1 as File);
+      formData.append("proof", form.proof2 as File);
+      formData.append("note", form.note || "");
+
+      const res = await submitJobProof(appId, formData);
       if (res?.error) {
         showAlert(res.error, "Gagal");
       } else {
@@ -169,7 +166,7 @@ export default function MyApplicationsClient({
 
       <div className="grid grid-cols-1 gap-4 md:gap-6">
         {applications.length === 0 ? (
-          <div className="rounded-[2rem] border-2 border-dashed border-gray-200 bg-gray-50 py-12 text-center md:py-20">
+          <div className="rounded-4xl border-2 border-dashed border-gray-200 bg-gray-50 py-12 text-center md:py-20">
             <p className="text-lg font-bold text-gray-400 md:text-xl">
               Belum ada lamaran.
             </p>
@@ -182,19 +179,19 @@ export default function MyApplicationsClient({
             const statusConfig = getStatusConfig(app.status);
             const isExpanded = expandedId === app.id;
             const form = proofForms[app.id] || {
-              proof1: "",
-              proof2: "",
+              proof1: null,
+              proof2: null,
               note: "",
             };
 
             return (
               <div
                 key={app.id}
-                className="overflow-hidden rounded-[1.5rem] border border-gray-100 bg-white shadow-sm transition-all duration-300 hover:shadow-xl md:rounded-[2rem]"
+                className="overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm transition-all duration-300 hover:shadow-xl md:rounded-4xl"
               >
                 <div className="relative h-1.5 bg-gray-100">
                   <div
-                    className={`absolute top-0 left-0 h-full bg-gradient-to-r from-[#008C9D] to-[#00B5CC] transition-all duration-700 ${getProgressWidth(app.status)}`}
+                    className={`absolute top-0 left-0 h-full bg-linear-to-r from-[#008C9D] to-[#00B5CC] transition-all duration-700 ${getProgressWidth(app.status)}`}
                   />
                 </div>
 
@@ -305,40 +302,48 @@ export default function MyApplicationsClient({
                         <div className="space-y-4">
                           <div>
                             <label className="mb-2 block text-sm font-bold text-gray-700">
-                              📸 Foto Sebelum (Link) *
+                              📸 Foto Sebelum (File) *
                             </label>
                             <input
-                              type="url"
-                              placeholder="https://drive.google.com/..."
-                              value={form.proof1}
+                              type="file"
+                              accept="image/*"
                               onChange={(e) =>
                                 handleProofChange(
                                   app.id,
                                   "proof1",
-                                  e.target.value,
+                                  e.target.files?.[0] || null,
                                 )
                               }
                               className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm font-medium transition-all outline-none focus:border-[#008C9D] focus:ring-4 focus:ring-[#008C9D]/10 md:text-base"
                             />
+                            {form.proof1 && (
+                              <p className="mt-1 text-xs text-gray-500">
+                                Selected: {(form.proof1 as File).name}
+                              </p>
+                            )}
                           </div>
 
                           <div>
                             <label className="mb-2 block text-sm font-bold text-gray-700">
-                              📸 Foto Sesudah (Link) *
+                              📸 Foto Sesudah (File) *
                             </label>
                             <input
-                              type="url"
-                              placeholder="https://drive.google.com/..."
-                              value={form.proof2}
+                              type="file"
+                              accept="image/*"
                               onChange={(e) =>
                                 handleProofChange(
                                   app.id,
                                   "proof2",
-                                  e.target.value,
+                                  e.target.files?.[0] || null,
                                 )
                               }
                               className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm font-medium transition-all outline-none focus:border-[#008C9D] focus:ring-4 focus:ring-[#008C9D]/10 md:text-base"
                             />
+                            {form.proof2 && (
+                              <p className="mt-1 text-xs text-gray-500">
+                                Selected: {(form.proof2 as File).name}
+                              </p>
+                            )}
                           </div>
 
                           <div>
@@ -438,7 +443,7 @@ export default function MyApplicationsClient({
 
         if (totalPotentialHours > 0) {
           return (
-            <div className="animate-in slide-in-from-bottom-4 fixed right-4 bottom-6 left-4 z-40 flex justify-center duration-500 md:absolute md:right-auto md:bottom-8 md:left-1/2 md:left-auto md:w-auto md:-translate-x-1/2 lg:left-72 lg:translate-x-8">
+            <div className="animate-in slide-in-from-bottom-4 fixed right-4 bottom-6 left-4 z-40 flex justify-center duration-500 md:absolute md:right-auto md:bottom-8 md:left-1/2 md:w-auto md:-translate-x-1/2 lg:left-72 lg:translate-x-8">
               <div className="flex w-full items-center justify-between gap-3 rounded-2xl border border-gray-800 bg-gray-900 px-4 py-3 text-white shadow-2xl md:w-auto md:justify-start md:gap-4 md:rounded-full md:px-6 md:py-4">
                 <div className="flex items-center gap-3 md:gap-4">
                   <div

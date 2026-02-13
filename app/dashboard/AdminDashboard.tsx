@@ -89,7 +89,7 @@ export default function AdminDashboard({
               Total Pemasukan
             </p>
             <h3 className="mt-1 text-2xl font-black text-gray-900">
-              Rp {stats?.totalIncome.toLocaleString("id-ID") || 0}
+              Rp {stats?.totalIncome?.toLocaleString("id-ID") || 0}
             </h3>
           </div>
         </div>

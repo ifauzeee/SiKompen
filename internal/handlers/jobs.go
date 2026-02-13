@@ -3,18 +3,19 @@ package handlers
 import (
 	"net/http"
 	"sikompen-backend/internal/models"
+	"sikompen-backend/internal/repository"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 type JobHandler struct {
-	DB *gorm.DB
+	JobRepo repository.JobRepository
+	AppRepo repository.ApplicationRepository
 }
 
-func NewJobHandler(db *gorm.DB) *JobHandler {
-	return &JobHandler{DB: db}
+func NewJobHandler(jobRepo repository.JobRepository, appRepo repository.ApplicationRepository) *JobHandler {
+	return &JobHandler{JobRepo: jobRepo, AppRepo: appRepo}
 }
 
 type JobRequest struct {
@@ -44,7 +45,7 @@ func (h *JobHandler) CreateJob(c *gin.Context) {
 		CreatedByID: &uid,
 	}
 
-	if err := h.DB.Create(&job).Error; err != nil {
+	if err := h.JobRepo.Create(&job); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create job"})
 		return
 	}
@@ -53,8 +54,8 @@ func (h *JobHandler) CreateJob(c *gin.Context) {
 }
 
 func (h *JobHandler) GetJobs(c *gin.Context) {
-	var jobs []models.Job
-	if err := h.DB.Preload("CreatedBy").Find(&jobs).Error; err != nil {
+	jobs, err := h.JobRepo.GetAll(nil)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch jobs"})
 		return
 	}
@@ -76,14 +77,13 @@ func (h *JobHandler) UpdateJob(c *gin.Context) {
 		return
 	}
 
-	var job models.Job
-	if err := h.DB.First(&job, uint(id)).Error; err != nil {
+	job, err := h.JobRepo.GetByID(uint(id))
+	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
 		return
 	}
 
-	var count int64
-	h.DB.Model(&models.JobApplication{}).Where("job_id = ?", id).Count(&count)
+	count, _ := h.AppRepo.GetCountByJobID(uint(id))
 	if count > 0 && job.Hours != req.Hours {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot change hours when applications exist"})
 		return
@@ -94,7 +94,7 @@ func (h *JobHandler) UpdateJob(c *gin.Context) {
 	job.Hours = req.Hours
 	job.Quota = req.Quota
 
-	if err := h.DB.Save(&job).Error; err != nil {
+	if err := h.JobRepo.Update(job); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update job"})
 		return
 	}
@@ -110,15 +110,7 @@ func (h *JobHandler) DeleteJob(c *gin.Context) {
 		return
 	}
 
-	err = h.DB.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("job_id = ?", uint(id)).Delete(&models.JobApplication{}).Error; err != nil {
-			return err
-		}
-		if err := tx.Delete(&models.Job{}, uint(id)).Error; err != nil {
-			return err
-		}
-		return nil
-	})
+	err = h.JobRepo.Delete(uint(id))
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete job"})
@@ -136,8 +128,8 @@ func (h *JobHandler) ToggleStatus(c *gin.Context) {
 		return
 	}
 
-	var job models.Job
-	if err := h.DB.First(&job, uint(id)).Error; err != nil {
+	job, err := h.JobRepo.GetByID(uint(id))
+	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
 		return
 	}
@@ -148,7 +140,7 @@ func (h *JobHandler) ToggleStatus(c *gin.Context) {
 		job.Status = "OPEN"
 	}
 
-	if err := h.DB.Save(&job).Error; err != nil {
+	if err := h.JobRepo.Update(job); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to toggle status"})
 		return
 	}

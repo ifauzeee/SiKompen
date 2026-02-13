@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"sikompen-backend/internal/models"
+	"sikompen-backend/internal/repository"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -65,7 +66,7 @@ func TestLogin_Success(t *testing.T) {
 	os.Setenv("JWT_SECRET", "test-secret")
 	defer os.Unsetenv("JWT_SECRET")
 
-	handler := NewAuthHandler(db)
+	handler := NewAuthHandler(repository.NewGormUserRepository(db))
 	r := setupRouter()
 	r.POST("/api/login", handler.Login)
 
@@ -102,7 +103,7 @@ func TestLogin_InvalidPassword(t *testing.T) {
 	db := setupTestDB(t)
 	seedTestUser(t, db, "admin", "password123", "ADMIN")
 
-	handler := NewAuthHandler(db)
+	handler := NewAuthHandler(repository.NewGormUserRepository(db))
 	r := setupRouter()
 	r.POST("/api/login", handler.Login)
 
@@ -120,7 +121,7 @@ func TestLogin_InvalidPassword(t *testing.T) {
 
 func TestLogin_UserNotFound(t *testing.T) {
 	db := setupTestDB(t)
-	handler := NewAuthHandler(db)
+	handler := NewAuthHandler(repository.NewGormUserRepository(db))
 	r := setupRouter()
 	r.POST("/api/login", handler.Login)
 
@@ -140,7 +141,7 @@ func TestGetMe_Success(t *testing.T) {
 	db := setupTestDB(t)
 	user := seedTestUser(t, db, "student", "pass123", "MAHASISWA")
 
-	handler := NewAuthHandler(db)
+	handler := NewAuthHandler(repository.NewGormUserRepository(db))
 	r := setupRouter()
 	r.GET("/api/me", func(c *gin.Context) {
 		c.Set("userId", user.ID)

@@ -17,12 +17,12 @@ import {
   ChevronDown,
   Menu,
   X,
-  Bell,
   Search,
 } from "lucide-react";
 
 import { logout } from "@/app/actions/auth";
 import ThemeToggle from "./ThemeToggle";
+import NotificationBell from "./NotificationBell";
 
 export default function Navbar({
   role,
@@ -163,7 +163,7 @@ export default function Navbar({
             href="/dashboard"
             className="group flex items-center gap-3 lg:hidden"
           >
-            <div className="from-pnj-blue to-pnj-blue-700 shadow-pnj-blue/20 relative flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br shadow-lg transition-transform duration-300 group-hover:scale-105">
+            <div className="from-pnj-blue to-pnj-blue-700 shadow-pnj-blue/20 relative flex h-9 w-9 items-center justify-center rounded-xl bg-linear-to-br shadow-lg transition-transform duration-300 group-hover:scale-105">
               <span className="text-lg font-black text-white">S</span>
             </div>
             <span className="hidden text-lg font-bold tracking-tight text-gray-900 sm:block dark:text-gray-100">
@@ -190,10 +190,9 @@ export default function Navbar({
           </div>
 
           <div className="ml-auto flex items-center gap-2 sm:gap-4">
-            <button className="relative hidden rounded-xl p-2 text-gray-400 transition-colors hover:bg-gray-100/50 hover:text-gray-600 sm:block dark:hover:bg-gray-800/50 dark:hover:text-gray-300">
-              <Bell size={20} />
-              <span className="absolute top-2 right-2.5 h-2 w-2 rounded-full border-2 border-white bg-red-500 dark:border-gray-950"></span>
-            </button>
+            <div className="hidden sm:block">
+              <NotificationBell />
+            </div>
 
             <div className="hidden h-8 w-px bg-gray-200 sm:block dark:bg-gray-800" />
 
@@ -206,7 +205,7 @@ export default function Navbar({
                     : "border-transparent bg-transparent hover:bg-gray-100/50 dark:hover:bg-gray-800/50"
                 }`}
               >
-                <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white bg-gradient-to-tr from-gray-100 to-gray-50 text-sm font-bold text-gray-700 shadow-inner ring-2 ring-gray-100 dark:border-gray-700 dark:from-gray-800 dark:to-gray-700 dark:text-gray-300 dark:ring-gray-800">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white bg-linear-to-tr from-gray-100 to-gray-50 text-sm font-bold text-gray-700 shadow-inner ring-2 ring-gray-100 dark:border-gray-700 dark:from-gray-800 dark:to-gray-700 dark:text-gray-300 dark:ring-gray-800">
                   {userName?.[0]?.toUpperCase() || "U"}
                 </div>
                 <div className="hidden flex-col items-start sm:flex">
@@ -273,7 +272,7 @@ export default function Navbar({
         </div>
       </nav>
 
-      <div className="pointer-events-none fixed inset-0 z-[60]">
+      <div className="pointer-events-none fixed inset-0 z-60">
         <div
           ref={mobileBackdropRef}
           className="pointer-events-none absolute inset-0 bg-gray-900/20 opacity-0 backdrop-blur-sm"

@@ -265,12 +265,13 @@ export default function DashboardClient({
                   className="group relative border-l border-gray-100 pb-6 pl-6 last:border-0 last:pb-0"
                 >
                   <div
-                    className={`absolute top-0 -left-[9px] h-4 w-4 rounded-full border-2 border-white transition-colors duration-300 ${act.type === "APPROVED"
+                    className={`absolute top-0 -left-[9px] h-4 w-4 rounded-full border-2 border-white transition-colors duration-300 ${
+                      act.type === "APPROVED"
                         ? "bg-[#008C9D] shadow-[0_0_0_4px_rgba(0,140,157,0.2)] group-hover:bg-[#007A8A]"
                         : act.type === "WARNING"
                           ? "bg-[#CE2029] shadow-[0_0_0_4px_rgba(206,32,41,0.2)] group-hover:bg-[#B01B23]"
                           : "bg-[#F4B41A] shadow-[0_0_0_4px_rgba(244,180,26,0.2)] group-hover:bg-[#D49B15]"
-                      }`}
+                    }`}
                   />
 
                   <div className="mb-1 flex items-start justify-between gap-4">
@@ -281,7 +282,7 @@ export default function DashboardClient({
                       {act.time}
                     </span>
                   </div>
-                  <p className="wrap-break-word text-sm leading-relaxed text-gray-500">
+                  <p className="text-sm leading-relaxed wrap-break-word text-gray-500">
                     {act.desc}
                   </p>
                 </div>

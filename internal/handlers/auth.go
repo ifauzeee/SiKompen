@@ -4,20 +4,20 @@ import (
 	"net/http"
 	"os"
 	"sikompen-backend/internal/models"
+	"sikompen-backend/internal/repository"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
-	"gorm.io/gorm"
 )
 
 type AuthHandler struct {
-	DB *gorm.DB
+	UserRepo repository.UserRepository
 }
 
-func NewAuthHandler(db *gorm.DB) *AuthHandler {
-	return &AuthHandler{DB: db}
+func NewAuthHandler(userRepo repository.UserRepository) *AuthHandler {
+	return &AuthHandler{UserRepo: userRepo}
 }
 
 type LoginRequest struct {
@@ -32,8 +32,9 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	var user models.User
-	if err := h.DB.Where("username = ?", req.Username).First(&user).Error; err != nil {
+	var user *models.User
+	var err error
+	if user, err = h.UserRepo.GetByUsername(req.Username); err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid username or password"})
 		return
 	}
@@ -68,8 +69,8 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 func (h *AuthHandler) GetMe(c *gin.Context) {
 	userId, _ := c.Get("userId")
-	var user models.User
-	if err := h.DB.First(&user, userId).Error; err != nil {
+	user, err := h.UserRepo.GetByID(userId.(uint))
+	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}

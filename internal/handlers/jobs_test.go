@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"sikompen-backend/internal/models"
+	"sikompen-backend/internal/repository"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -16,7 +17,7 @@ func TestCreateJob_Success(t *testing.T) {
 	db := setupTestDB(t)
 	user := seedTestUser(t, db, "admin", "admin123", "ADMIN")
 
-	handler := NewJobHandler(db)
+	handler := NewJobHandler(repository.NewGormJobRepository(db), repository.NewGormApplicationRepository(db))
 	r := setupRouter()
 	r.POST("/api/jobs", func(c *gin.Context) {
 		c.Set("userId", user.ID)
@@ -56,7 +57,7 @@ func TestGetJobs_Success(t *testing.T) {
 	db.Create(&models.Job{Title: "Job 1", Description: "Desc 1", Hours: 1, Quota: 1, CreatedByID: &user.ID})
 	db.Create(&models.Job{Title: "Job 2", Description: "Desc 2", Hours: 2, Quota: 3, CreatedByID: &user.ID})
 
-	handler := NewJobHandler(db)
+	handler := NewJobHandler(repository.NewGormJobRepository(db), repository.NewGormApplicationRepository(db))
 	r := setupRouter()
 	r.GET("/api/jobs", func(c *gin.Context) {
 		c.Set("userId", user.ID)
@@ -88,7 +89,7 @@ func TestDeleteJob_Success(t *testing.T) {
 	job := models.Job{Title: "Delete Me", Description: "Desc", Hours: 1, Quota: 1, CreatedByID: &user.ID}
 	db.Create(&job)
 
-	handler := NewJobHandler(db)
+	handler := NewJobHandler(repository.NewGormJobRepository(db), repository.NewGormApplicationRepository(db))
 	r := setupRouter()
 	r.DELETE("/api/jobs/:id", func(c *gin.Context) {
 		c.Set("userId", user.ID)
@@ -112,7 +113,7 @@ func TestToggleStatus_Success(t *testing.T) {
 	job := models.Job{Title: "Toggle Me", Description: "Desc", Hours: 1, Quota: 1, Status: "OPEN", CreatedByID: &user.ID}
 	db.Create(&job)
 
-	handler := NewJobHandler(db)
+	handler := NewJobHandler(repository.NewGormJobRepository(db), repository.NewGormApplicationRepository(db))
 	r := setupRouter()
 	r.PATCH("/api/jobs/:id/status", func(c *gin.Context) {
 		c.Set("userId", user.ID)

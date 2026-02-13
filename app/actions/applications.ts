@@ -34,12 +34,7 @@ export async function getApplicationsByStatus(
   }
 }
 
-export async function submitJobProof(
-  appId: number,
-  proof1: string,
-  proof2: string,
-  note: string,
-) {
+export async function submitJobProof(appId: number, formData: FormData) {
   const session = await getSession();
   if (!session) return { error: "Unauthorized" };
 
@@ -47,10 +42,9 @@ export async function submitJobProof(
     const response = await fetch(`${API_URL}/applications/${appId}/proof`, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
         Authorization: `Bearer ${session.token}`,
       },
-      body: JSON.stringify({ proof1, proof2, note }),
+      body: formData,
     });
 
     const data = await response.json();
@@ -58,6 +52,7 @@ export async function submitJobProof(
 
     revalidatePath("/dashboard/my-applications");
     revalidatePath("/dashboard/my-jobs");
+    revalidatePath("/my-applications");
     return { success: true };
   } catch {
     return { error: "Gagal menghubungi server." };

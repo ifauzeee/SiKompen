@@ -1,10 +1,11 @@
 package handlers
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"sikompen-backend/internal/models"
+	"sikompen-backend/internal/repository"
+	"sikompen-backend/internal/utils"
 	"strconv"
 	"time"
 
@@ -13,11 +14,23 @@ import (
 )
 
 type ApplicationHandler struct {
-	DB *gorm.DB
+	AppRepo   repository.ApplicationRepository
+	JobRepo   repository.JobRepository
+	UserRepo  repository.UserRepository
+	AdminRepo repository.AdminRepository
+	NotifRepo repository.NotificationRepository
+	DB        *gorm.DB
 }
 
-func NewApplicationHandler(db *gorm.DB) *ApplicationHandler {
-	return &ApplicationHandler{DB: db}
+func NewApplicationHandler(appRepo repository.ApplicationRepository, jobRepo repository.JobRepository, userRepo repository.UserRepository, adminRepo repository.AdminRepository, notifRepo repository.NotificationRepository, db *gorm.DB) *ApplicationHandler {
+	return &ApplicationHandler{
+		AppRepo:   appRepo,
+		JobRepo:   jobRepo,
+		UserRepo:  userRepo,
+		AdminRepo: adminRepo,
+		NotifRepo: notifRepo,
+		DB:        db,
+	}
 }
 
 func (h *ApplicationHandler) ApplyForJob(c *gin.Context) {
@@ -170,21 +183,36 @@ func (h *ApplicationHandler) UpdateStatus(c *gin.Context) {
 			return err
 		}
 
-		details, _ := json.Marshal(map[string]interface{}{
-			"studentName": app.User.Name,
-			"jobTitle":    app.Job.Title,
-			"statusFrom":  statusFrom,
-			"statusTo":    newStatus,
-		})
-
-		tx.Create(&models.ActivityLog{
-			UserID:     ptrUint(adminId.(uint)),
-			Action:     newStatus,
+		_ = h.AdminRepo.CreateActivityLog(&models.ActivityLog{
+			UserID:     utils.PtrUint(adminId.(uint)),
+			Action:     fmt.Sprintf("UPDATE_APPLICATION_%s", newStatus),
 			TargetType: "APPLICATION",
-			TargetID:   ptrUint(uint(appId)),
-			Details:    ptrString(string(details)),
+			TargetID:   utils.PtrUint(uint(appId)),
+			Details:    utils.PtrString(fmt.Sprintf("Status changed from %s to %s", statusFrom, newStatus)),
 			CreatedAt:  time.Now(),
 		})
+
+		var notifTitle, notifMsg string
+		switch newStatus {
+		case "ACCEPTED":
+			notifTitle = "Lamaran Diterima"
+			notifMsg = fmt.Sprintf("Selamat! Lamaran Anda untuk pekerjaan '%s' telah diterima.", app.Job.Title)
+		case "REJECTED":
+			notifTitle = "Lamaran Ditolak"
+			notifMsg = fmt.Sprintf("Maaf, lamaran Anda untuk pekerjaan '%s' ditolak.", app.Job.Title)
+		case "COMPLETED":
+			notifTitle = "Pekerjaan Selesai"
+			notifMsg = fmt.Sprintf("Bukti pengerjaan untuk '%s' telah diverifikasi. Jam kompen Anda telah diperbarui.", app.Job.Title)
+		}
+
+		if notifTitle != "" {
+			_ = h.NotifRepo.Create(&models.Notification{
+				UserID:    app.UserID,
+				Title:     notifTitle,
+				Message:   notifMsg,
+				CreatedAt: time.Now(),
+			})
+		}
 
 		return nil
 	})
@@ -197,26 +225,13 @@ func (h *ApplicationHandler) UpdateStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true})
 }
 
-type SubmitProofRequest struct {
-	Proof1 string `json:"proof1" binding:"required"`
-	Proof2 string `json:"proof2"`
-	Note   string `json:"note"`
-}
-
 func (h *ApplicationHandler) SubmitProof(c *gin.Context) {
 	appIdStr := c.Param("id")
 	appId, _ := strconv.ParseUint(appIdStr, 10, 32)
-
-	var req SubmitProofRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
 	userId, _ := c.Get("userId")
 
-	var app models.JobApplication
-	if err := h.DB.First(&app, uint(appId)).Error; err != nil {
+	app, err := h.AppRepo.GetByID(uint(appId))
+	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Application not found"})
 		return
 	}
@@ -231,22 +246,48 @@ func (h *ApplicationHandler) SubmitProof(c *gin.Context) {
 		return
 	}
 
-	app.ProofImage1 = &req.Proof1
-	app.ProofImage2 = &req.Proof2
-	app.SubmissionNote = &req.Note
-	app.Status = "VERIFYING"
-
-	if err := h.DB.Save(&app).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to submit proof"})
+	form, err := c.MultipartForm()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to parse multipart form"})
 		return
 	}
 
-	h.DB.Create(&models.ActivityLog{
-		UserID:     ptrUint(userId.(uint)),
+	files := form.File["proof"]
+	if len(files) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "At least one proof file is required"})
+		return
+	}
+
+	for i, file := range files {
+		filename, err := utils.SaveUpload(file, "uploads/proofs")
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file"})
+			return
+		}
+		path := "/uploads/proofs/" + filename
+		switch i {
+		case 0:
+			app.ProofImage1 = &path
+		case 1:
+			app.ProofImage2 = &path
+		}
+	}
+
+	note := c.PostForm("note")
+	app.SubmissionNote = &note
+	app.Status = "VERIFYING"
+
+	if err := h.AppRepo.Update(app); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update application"})
+		return
+	}
+
+	_ = h.AdminRepo.CreateActivityLog(&models.ActivityLog{
+		UserID:     utils.PtrUint(userId.(uint)),
 		Action:     "SUBMIT_PROOF",
 		TargetType: "APPLICATION",
-		TargetID:   ptrUint(uint(appId)),
-		Details:    ptrString("Submitted proof"),
+		TargetID:   utils.PtrUint(uint(appId)),
+		Details:    utils.PtrString("Submitted proof via file upload"),
 		CreatedAt:  time.Now(),
 	})
 
@@ -262,25 +303,17 @@ func (h *ApplicationHandler) GetByStatus(c *gin.Context) {
 	userId, _ := c.Get("userId")
 	role, _ := c.Get("role")
 
-	query := h.DB.Preload("User").Preload("Job").Where("status = ?", status)
-
-	if role == "PENGAWAS" {
-		query = query.Joins("JOIN jobs ON jobs.id = job_applications.job_id").Where("jobs.created_by_id = ?", userId)
+	var mid *uint
+	if role.(string) == "PENGAWAS" {
+		uid := userId.(uint)
+		mid = &uid
 	}
 
-	var apps []models.JobApplication
-	if err := query.Order("applied_at desc").Limit(20).Find(&apps).Error; err != nil {
+	apps, err := h.AppRepo.GetByStatus(status, mid)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch applications"})
 		return
 	}
 
 	c.JSON(http.StatusOK, apps)
-}
-
-func ptrUint(u uint) *uint {
-	return &u
-}
-
-func ptrString(s string) *string {
-	return &s
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sikompen-backend/internal/repository"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -14,7 +15,7 @@ func TestCreateUser_Success(t *testing.T) {
 	db := setupTestDB(t)
 	seedTestUser(t, db, "admin", "admin123", "ADMIN")
 
-	handler := NewUserHandler(db)
+	handler := NewUserHandler(repository.NewGormUserRepository(db))
 	r := setupRouter()
 	r.POST("/api/admin/users", func(c *gin.Context) {
 		c.Set("userId", uint(1))
@@ -43,7 +44,7 @@ func TestCreateUser_DuplicateUsername(t *testing.T) {
 	db := setupTestDB(t)
 	seedTestUser(t, db, "existing", "pass123", "MAHASISWA")
 
-	handler := NewUserHandler(db)
+	handler := NewUserHandler(repository.NewGormUserRepository(db))
 	r := setupRouter()
 	r.POST("/api/admin/users", func(c *gin.Context) {
 		c.Set("userId", uint(1))
@@ -73,7 +74,7 @@ func TestGetUsers_Success(t *testing.T) {
 	seedTestUser(t, db, "user1", "pass1", "ADMIN")
 	seedTestUser(t, db, "user2", "pass2", "MAHASISWA")
 
-	handler := NewUserHandler(db)
+	handler := NewUserHandler(repository.NewGormUserRepository(db))
 	r := setupRouter()
 	r.GET("/api/admin/users", func(c *gin.Context) {
 		c.Set("userId", uint(1))
@@ -102,7 +103,7 @@ func TestDeleteUser_CannotDeleteSelf(t *testing.T) {
 	db := setupTestDB(t)
 	user := seedTestUser(t, db, "admin", "pass123", "ADMIN")
 
-	handler := NewUserHandler(db)
+	handler := NewUserHandler(repository.NewGormUserRepository(db))
 	r := setupRouter()
 	r.DELETE("/api/admin/users/:id", func(c *gin.Context) {
 		c.Set("userId", user.ID)
@@ -123,7 +124,7 @@ func TestChangePassword_Success(t *testing.T) {
 	db := setupTestDB(t)
 	user := seedTestUser(t, db, "student", "oldpass123", "MAHASISWA")
 
-	handler := NewUserHandler(db)
+	handler := NewUserHandler(repository.NewGormUserRepository(db))
 	r := setupRouter()
 	r.PATCH("/api/users/password", func(c *gin.Context) {
 		c.Set("userId", user.ID)
@@ -150,7 +151,7 @@ func TestChangePassword_WrongCurrentPassword(t *testing.T) {
 	db := setupTestDB(t)
 	user := seedTestUser(t, db, "student", "oldpass123", "MAHASISWA")
 
-	handler := NewUserHandler(db)
+	handler := NewUserHandler(repository.NewGormUserRepository(db))
 	r := setupRouter()
 	r.PATCH("/api/users/password", func(c *gin.Context) {
 		c.Set("userId", user.ID)

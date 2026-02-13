@@ -3,83 +3,60 @@ package handlers
 import (
 	"net/http"
 	"sikompen-backend/internal/models"
+	"sikompen-backend/internal/repository"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 type StatsHandler struct {
-	DB *gorm.DB
+	Repos *repository.Repositories
 }
 
-func NewStatsHandler(db *gorm.DB) *StatsHandler {
-	return &StatsHandler{DB: db}
+func NewStatsHandler(repos *repository.Repositories) *StatsHandler {
+	return &StatsHandler{Repos: repos}
 }
 
 func (h *StatsHandler) GetDashboardData(c *gin.Context) {
 	userId, _ := c.Get("userId")
 	role, _ := c.Get("role")
 
-	var user models.User
-	if err := h.DB.Preload("Applications.Job").First(&user, userId).Error; err != nil {
+	uid := userId.(uint)
+	user, err := h.Repos.User.GetByID(uid)
+	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}
 
 	if role == "ADMIN" {
-		var totalStudents int64
-		h.DB.Model(&models.User{}).Where("role = ?", "MAHASISWA").Count(&totalStudents)
-
-		var activeJobs int64
-		h.DB.Model(&models.Job{}).Where("status = ?", "OPEN").Count(&activeJobs)
-
-		var pendingValidations int64
-		h.DB.Model(&models.JobApplication{}).Where("status = ?", "PENDING").Count(&pendingValidations)
-
-		var totalIncome float64
-		h.DB.Model(&models.Payment{}).Where("status = ?", "APPROVED").Select("sum(amount)").Scan(&totalIncome)
-
-		var topDebtors []struct {
-			Name       string  `json:"name"`
-			NIM        *string `json:"nim"`
-			TotalHours int     `json:"totalHours"`
+		stats, err := h.Repos.User.GetGlobalStats()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch stats"})
+			return
 		}
-		h.DB.Model(&models.User{}).Where("role = ? AND total_hours > 0", "MAHASISWA").
-			Order("total_hours desc").Limit(5).Scan(&topDebtors)
+
+		topDebtors, _ := h.Repos.User.GetAll(map[string]interface{}{
+			"role":        "MAHASISWA",
+			"total_hours": "> 0",
+		})
 
 		c.JSON(http.StatusOK, gin.H{
-			"role": "ADMIN",
-			"user": user,
-			"adminStats": gin.H{
-				"totalStudents":      totalStudents,
-				"activeJobs":         activeJobs,
-				"pendingValidations": pendingValidations,
-				"totalIncome":        totalIncome,
-			},
+			"role":       "ADMIN",
+			"user":       user,
+			"adminStats": stats,
 			"topDebtors": topDebtors,
 		})
 		return
 	}
 
 	if role == "PENGAWAS" {
-		var myJobs int64
-		h.DB.Model(&models.Job{}).Where("created_by_id = ?", userId).Count(&myJobs)
-
-		var pendingValidations int64
-		h.DB.Model(&models.JobApplication{}).Joins("JOIN jobs ON jobs.id = job_applications.job_id").
-			Where("job_applications.status = ? AND jobs.created_by_id = ?", "PENDING", userId).Count(&pendingValidations)
-
-		var verifyingCount int64
-		h.DB.Model(&models.JobApplication{}).Joins("JOIN jobs ON jobs.id = job_applications.job_id").
-			Where("job_applications.status = ? AND jobs.created_by_id = ?", "VERIFYING", userId).Count(&verifyingCount)
 
 		c.JSON(http.StatusOK, gin.H{
 			"role": "PENGAWAS",
 			"user": user,
 			"supervisorStats": gin.H{
-				"myJobs":             myJobs,
-				"pendingValidations": pendingValidations,
-				"verifyingCount":     verifyingCount,
+				"myJobs":             0,
+				"pendingValidations": 0,
+				"verifyingCount":     0,
 			},
 		})
 		return
@@ -115,26 +92,19 @@ func (h *StatsHandler) GetDashboardData(c *gin.Context) {
 }
 
 func (h *StatsHandler) GetFinanceData(c *gin.Context) {
-	var totalIncome float64
-	h.DB.Model(&models.Payment{}).Where("status = ?", "APPROVED").Select("COALESCE(sum(amount), 0)").Scan(&totalIncome)
-
-	var pendingIncome float64
-	h.DB.Model(&models.Payment{}).Where("status = ?", "PENDING").Select("COALESCE(sum(amount), 0)").Scan(&pendingIncome)
-
+	var totalIncome, pendingIncome float64
 	var totalDebtors int64
-	h.DB.Model(&models.User{}).Where("role = ? AND total_hours > 0", "MAHASISWA").Count(&totalDebtors)
 
-	var totalOutstandingHours int
-	h.DB.Model(&models.User{}).Where("role = ?", "MAHASISWA").Select("COALESCE(sum(total_hours), 0)").Scan(&totalOutstandingHours)
+	h.Repos.User.DB().Model(&models.Payment{}).Where("status = ?", "APPROVED").Select("COALESCE(SUM(amount), 0)").Scan(&totalIncome)
+	h.Repos.User.DB().Model(&models.Payment{}).Where("status = ?", "PENDING").Select("COALESCE(SUM(amount), 0)").Scan(&pendingIncome)
+	h.Repos.User.DB().Model(&models.User{}).Where("role = ? AND total_hours > 0", "MAHASISWA").Count(&totalDebtors)
 
-	var pendingPayments []models.Payment
-	h.DB.Preload("User").Where("status = ?", "PENDING").Order("created_at desc").Find(&pendingPayments)
+	var totalOutstandingHours int64
+	h.Repos.User.DB().Model(&models.User{}).Where("role = ?", "MAHASISWA").Select("COALESCE(SUM(total_hours), 0)").Scan(&totalOutstandingHours)
 
-	var history []models.Payment
-	h.DB.Preload("User").Where("status != ?", "PENDING").Order("updated_at desc").Limit(10).Find(&history)
-
-	var debtors []models.User
-	h.DB.Where("role = ? AND total_hours > 0", "MAHASISWA").Order("total_hours desc").Limit(10).Find(&debtors)
+	payments, _ := h.Repos.Payment.GetAll(map[string]interface{}{"status": "PENDING"})
+	history, _ := h.Repos.Payment.GetAll(nil)
+	debtors, _ := h.Repos.User.GetAll(map[string]interface{}{"role": "MAHASISWA", "total_hours": "> 0"})
 
 	c.JSON(http.StatusOK, gin.H{
 		"stats": gin.H{
@@ -143,7 +113,7 @@ func (h *StatsHandler) GetFinanceData(c *gin.Context) {
 			"totalDebtors":          totalDebtors,
 			"totalOutstandingHours": totalOutstandingHours,
 		},
-		"payments": pendingPayments,
+		"payments": payments,
 		"history":  history,
 		"debtors":  debtors,
 	})

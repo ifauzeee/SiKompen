@@ -98,3 +98,13 @@ type Payment struct {
 	UpdatedAt       time.Time `json:"updatedAt"`
 	User            User      `gorm:"foreignKey:UserID" json:"user,omitempty"`
 }
+
+type Notification struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	UserID    uint      `gorm:"not null;index" json:"userId"`
+	Title     string    `gorm:"not null" json:"title"`
+	Message   string    `gorm:"not null" json:"message"`
+	IsRead    bool      `gorm:"default:false" json:"isRead"`
+	CreatedAt time.Time `gorm:"default:CURRENT_TIMESTAMP" json:"createdAt"`
+	User      User      `gorm:"foreignKey:UserID" json:"-"`
+}

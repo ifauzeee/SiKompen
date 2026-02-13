@@ -24,8 +24,12 @@ func main() {
 	}
 
 	db := repository.InitDB(dbURL)
+	repos := repository.NewRepositories(db)
 
 	r := gin.Default()
+
+	r.Use(gin.Recovery())
+	r.Static("/uploads", "./uploads")
 
 	allowedOrigins := os.Getenv("CORS_ORIGIN")
 	if allowedOrigins == "" {
@@ -53,13 +57,15 @@ func main() {
 		c.Next()
 	})
 
-	authHandler := handlers.NewAuthHandler(db)
-	jobHandler := handlers.NewJobHandler(db)
-	appHandler := handlers.NewApplicationHandler(db)
-	adminHandler := handlers.NewAdminHandler(db)
-	paymentHandler := handlers.NewPaymentHandler(db)
-	userHandler := handlers.NewUserHandler(db)
-	statsHandler := handlers.NewStatsHandler(db)
+	authHandler := handlers.NewAuthHandler(repos.User)
+	jobHandler := handlers.NewJobHandler(repos.Job, repos.Application)
+	appRepo := repos.Application
+	appHandler := handlers.NewApplicationHandler(appRepo, repos.Job, repos.User, repos.Admin, repos.Notification, db)
+	adminHandler := handlers.NewAdminHandler(repos.Admin, repos.User)
+	paymentHandler := handlers.NewPaymentHandler(repos.Payment, repos.User, repos.Admin, repos.Notification, db)
+	userHandler := handlers.NewUserHandler(repos.User)
+	statsHandler := handlers.NewStatsHandler(repos)
+	notifHandler := handlers.NewNotificationHandler(repos.Notification)
 
 	api := r.Group("/api")
 	{
@@ -84,9 +90,12 @@ func main() {
 			auth.PATCH("/applications/:id/status", appHandler.UpdateStatus)
 			auth.POST("/applications/:id/proof", appHandler.SubmitProof)
 
-			auth.POST("/payments", paymentHandler.CreatePayment)
 			auth.PATCH("/payments/:id/verify", paymentHandler.VerifyPayment)
 			auth.GET("/finance/stats", statsHandler.GetFinanceData)
+
+			auth.GET("/notifications", notifHandler.GetMyNotifications)
+			auth.PATCH("/notifications/:id/read", notifHandler.MarkAsRead)
+			auth.PATCH("/notifications/read-all", notifHandler.MarkAllAsRead)
 
 			admin := auth.Group("/admin")
 			admin.Use(middleware.AdminOnly())
