@@ -1,0 +1,26 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "🚀 Running pre-push checks..."
+
+# Frontend Lint
+echo "🔍 Linting Frontend..."
+pnpm lint || { echo "❌ Frontend lint failed"; exit 1; }
+
+# Backend Lint/Vet
+echo "🔍 Vetting Backend..."
+pnpm lint:backend || { echo "❌ Go vet failed"; exit 1; }
+
+# Backend Format Check
+echo "🔍 Checking Go formatting..."
+if [ -n "$(gofmt -l .)" ]; then
+    echo "❌ Go files are not formatted. Please run 'go fmt ./...'"
+    gofmt -l .
+    exit 1
+fi
+
+# Backend Tests
+echo "🧪 Running Backend Tests..."
+pnpm test:backend || { echo "❌ Backend tests failed"; exit 1; }
+
+echo "✅ All checks passed! Proceeding with push..."
