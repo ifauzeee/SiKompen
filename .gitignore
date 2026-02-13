@@ -43,8 +43,9 @@ yarn-error.log*
 # editor
 .vscode/
 
-# local db
+# Database
 *.db
+/postgres_data/
 *.db-journal
 *.db-shm
 *.db-wal

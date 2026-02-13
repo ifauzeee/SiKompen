@@ -13,7 +13,7 @@ import (
 
 func InitDB(dbURL string) *gorm.DB {
 	var dialector gorm.Dialector
-	if strings.HasPrefix(dbURL, "postgres://") || strings.HasPrefix(dbURL, "postgresql://") {
+	if strings.Contains(dbURL, "postgres") || strings.Contains(dbURL, "postgresql") {
 		dialector = postgres.Open(dbURL)
 	} else {
 		dialector = sqlite.Open(dbURL)
