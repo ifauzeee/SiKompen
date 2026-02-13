@@ -38,12 +38,12 @@ type ApplicationWithRelations = JobApplication & { user: { name: string; nim: st
 
 type DashboardData =
     | { role: 'ADMIN'; user: User; adminStats: AdminStats; applications: ApplicationWithRelations[]; acceptedApplications: ApplicationWithRelations[]; topDebtors: { name: string; nim: string | null; totalHours: number }[] }
-    | { role: 'PENGAWAS'; user: User; supervisorStats: SupervisorStats; applications: ApplicationWithRelations[]; acceptedApplications: ApplicationWithRelations[] }
+    | { role: 'PENGAWAS'; user: User; supervisorStats: SupervisorStats; applications: ApplicationWithRelations[]; acceptedApplications: ApplicationWithRelations[]; verifyingApplications?: ApplicationWithRelations[] }
     | { role: 'MAHASISWA'; user: User; stats: StudentStats; activities: Activity[]; };
 
 export const dynamic = 'force-dynamic';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+const API_URL = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
 
 async function getDashboardData() {
     const session = await getSession();
@@ -54,14 +54,14 @@ async function getDashboardData() {
             headers: {
                 'Authorization': `Bearer ${session.token}`
             },
-            next: { revalidate: 0 } // force dynamic
+            next: { revalidate: 0 }
         });
 
         if (!response.ok) return null;
 
         const data = await response.json();
 
-        // Fetch additional data if needed (like applications)
+
         if (data.role === 'ADMIN' || data.role === 'PENGAWAS') {
             const pendingApps = await getApplicationsByStatus('PENDING');
             const acceptedApps = await getApplicationsByStatus('ACCEPTED');
@@ -74,47 +74,48 @@ async function getDashboardData() {
         }
 
         if (data.role === 'MAHASISWA') {
-            // Transform activities for student
+
             const user = data.user;
-            const activities = user.Applications.map((app: any) => {
+
+            const activities = (user.applications || []).map((app: ApplicationWithRelations) => {
                 const config: Record<string, { type: 'APPROVED' | 'DONE' | 'WARNING', title: string, desc: string }> = {
                     ACCEPTED: {
                         type: 'APPROVED',
                         title: 'Lamaran Disetujui',
-                        desc: `Anda diterima untuk pekerjaan: ${app.Job.Title}. Segera kerjakan!`
+                        desc: `Anda diterima untuk pekerjaan: ${app.job?.title || 'Unknown'}. Segera kerjakan!`
                     },
                     PENDING: {
                         type: 'WARNING',
                         title: 'Menunggu Konfirmasi',
-                        desc: `Lamaran untuk ${app.Job.Title} sedang ditinjau.`
+                        desc: `Lamaran untuk ${app.job?.title || 'Unknown'} sedang ditinjau.`
                     },
                     COMPLETED: {
                         type: 'DONE',
                         title: 'Tugas Selesai',
-                        desc: `Anda telah menyelesaikan tugas: ${app.Job.Title} (+${app.Job.Hours} Jam)`
+                        desc: `Anda telah menyelesaikan tugas: ${app.job?.title || 'Unknown'} (+${app.job?.hours || 0} Jam)`
                     },
                     REJECTED: {
                         type: 'WARNING',
                         title: 'Lamaran Ditolak',
-                        desc: `Mohon maaf, lamaran untuk ${app.Job.Title} tidak disetujui.`
+                        desc: `Mohon maaf, lamaran untuk ${app.job?.title || 'Unknown'} tidak disetujui.`
                     }
                 };
 
-                const state = config[app.Status] || config.PENDING;
+                const state = config[app.status] || config.PENDING;
 
                 return {
-                    id: app.ID,
+                    id: app.id,
                     ...state,
-                    time: new Date(app.CreatedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })
+                    time: new Date(app.appliedAt || new Date().toISOString()).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })
                 };
             });
 
-            if (user.TotalHours > 20) {
+            if (user.totalHours > 20) {
                 activities.unshift({
                     id: 999,
                     type: 'WARNING',
                     title: 'Peringatan Kompen',
-                    desc: `Sisa tanggungan Anda ${user.TotalHours} jam. Segera selesaikan sebelum semester berakhir!`,
+                    desc: `Sisa tanggungan Anda ${user.totalHours} jam. Segera selesaikan sebelum semester berakhir!`,
                     time: 'Hari ini'
                 });
             }
@@ -156,7 +157,7 @@ export default async function DashboardPage() {
 
     if (dashboardData.role === 'PENGAWAS') {
         const { supervisorStats, applications, acceptedApplications } = dashboardData;
-        const verifyingApplications = (dashboardData as any).verifyingApplications || [];
+        const verifyingApplications = dashboardData.verifyingApplications || [];
         return (
             <SupervisorDashboard
                 user={dashboardData.user}

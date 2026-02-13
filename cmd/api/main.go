@@ -6,13 +6,14 @@ import (
 	"sikompen-backend/internal/handlers"
 	"sikompen-backend/internal/middleware"
 	"sikompen-backend/internal/repository"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 )
 
 func main() {
-	// Load .env file
+
 	if err := godotenv.Load("../../.env"); err != nil {
 		log.Println("No .env file found or error loading it")
 	}
@@ -26,11 +27,27 @@ func main() {
 
 	r := gin.Default()
 
-	// CORS middleware
+
+	allowedOrigins := os.Getenv("CORS_ORIGIN")
+	if allowedOrigins == "" {
+		allowedOrigins = "http://localhost:3000"
+	}
+
 	r.Use(func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		origin := c.GetHeader("Origin")
+
+
+		for _, allowed := range strings.Split(allowedOrigins, ",") {
+			allowed = strings.TrimSpace(allowed)
+			if origin == allowed {
+				c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
+				break
+			}
+		}
+
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(204)
 			return
@@ -50,32 +67,35 @@ func main() {
 	{
 		api.POST("/login", authHandler.Login)
 
-		// Protected routes
+
 		auth := api.Group("/")
 		auth.Use(middleware.AuthMiddleware())
 		{
 			auth.GET("/me", authHandler.GetMe)
 			auth.GET("/dashboard/stats", statsHandler.GetDashboardData)
 
-			// Jobs
+
+			auth.PATCH("/users/password", userHandler.ChangePassword)
+
+
 			auth.GET("/jobs", jobHandler.GetJobs)
 			auth.POST("/jobs", middleware.AdminOnly(), jobHandler.CreateJob)
 			auth.PUT("/jobs/:id", middleware.AdminOnly(), jobHandler.UpdateJob)
 			auth.DELETE("/jobs/:id", middleware.AdminOnly(), jobHandler.DeleteJob)
 			auth.PATCH("/jobs/:id/status", middleware.AdminOnly(), jobHandler.ToggleStatus)
 
-			// Applications
+
 			auth.POST("/jobs/:jobId/apply", appHandler.ApplyForJob)
 			auth.GET("/applications", appHandler.GetByStatus)
 			auth.PATCH("/applications/:id/status", appHandler.UpdateStatus)
 			auth.POST("/applications/:id/proof", appHandler.SubmitProof)
 
-			// Payments
+
 			auth.POST("/payments", paymentHandler.CreatePayment)
 			auth.PATCH("/payments/:id/verify", paymentHandler.VerifyPayment)
 			auth.GET("/finance/stats", statsHandler.GetFinanceData)
 
-			// Admin
+
 			admin := auth.Group("/admin")
 			admin.Use(middleware.AdminOnly())
 			{

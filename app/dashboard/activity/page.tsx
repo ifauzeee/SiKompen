@@ -3,6 +3,7 @@ import { getActivityLogs } from "@/app/actions/admin";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Clock, Briefcase, Settings, FileUp, CheckCircle, XCircle, Edit } from "lucide-react";
+import { ActivityLog } from "@/types";
 
 export const dynamic = 'force-dynamic';
 
@@ -56,7 +57,7 @@ export default async function ActivityLogPage() {
                         </div>
                     ) : (
                         <div className="divide-y divide-gray-100">
-                            {logs.map((log) => {
+                            {logs.map((log: ActivityLog) => {
                                 let details = null;
                                 try {
                                     details = log.details ? JSON.parse(log.details) : null;

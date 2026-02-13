@@ -14,7 +14,7 @@ const ChangePasswordSchema = z.object({
     newPassword: z.string().min(6, "Password baru minimal 6 karakter")
 })
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+const API_URL = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
 
 export async function login(formData: FormData) {
     const rawData = {
@@ -50,12 +50,13 @@ export async function login(formData: FormData) {
             username: data.user.username,
             token: data.token
         });
-
-        redirect('/dashboard');
     } catch (e) {
+        if (e instanceof Error && e.message === 'NEXT_REDIRECT') throw e;
         console.error('Login error:', e);
         return { error: 'Gagal menghubungi server.' };
     }
+
+    redirect('/dashboard');
 }
 
 export async function logout() {
@@ -92,8 +93,8 @@ export async function changePassword(currentPassword: string, newPassword: strin
     }
 
     try {
-        const response = await fetch(`${API_URL}/admin/users/${session.userId}/password`, {
-            method: 'PATCH', // Assumed endpoint or need to create one similarly
+        const response = await fetch(`${API_URL}/users/password`, {
+            method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${session.token}`

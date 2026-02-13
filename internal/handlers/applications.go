@@ -126,7 +126,6 @@ func (h *ApplicationHandler) UpdateStatus(c *gin.Context) {
 				return err
 			}
 
-			// Refresh job to check quota
 			var updatedJob models.Job
 			tx.First(&updatedJob, app.JobID)
 			if updatedJob.Quota <= 0 {

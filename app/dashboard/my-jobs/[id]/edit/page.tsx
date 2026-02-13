@@ -4,7 +4,9 @@ import EditJobClient from "./EditJobClient";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+const API_URL = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+
+import { Job } from "@/types";
 
 export default async function EditJobPage({ params }: { params: Promise<{ id: string }> }) {
     const session = await getSession();
@@ -24,8 +26,8 @@ export default async function EditJobPage({ params }: { params: Promise<{ id: st
 
     if (!res.ok) redirect('/dashboard/my-jobs');
 
-    const allJobs = await res.json();
-    const job = allJobs.find((j: any) => j.id === jobId);
+    const allJobs: Job[] = await res.json();
+    const job = allJobs.find((j) => j.id === jobId);
 
     if (!job) redirect('/dashboard/my-jobs');
 

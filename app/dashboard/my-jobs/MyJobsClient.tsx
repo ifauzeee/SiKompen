@@ -11,7 +11,7 @@ import DeleteModal from "@/components/DeleteModal";
 import { Job } from "@/types";
 import { Loader2 } from "lucide-react";
 
-export default function MyJobsClient({ jobs }: { jobs: (Job & { _count: { applications: number }, status: string })[] }) {
+export default function MyJobsClient({ jobs }: { jobs: (Job & { _count?: { applications: number }, status: string })[] }) {
     const router = useRouter();
     const { showAlert } = useDialog();
     const [isDeleting, setIsDeleting] = useState(false);
@@ -87,8 +87,8 @@ export default function MyJobsClient({ jobs }: { jobs: (Job & { _count: { applic
                     </div>
                 ) : (
                     jobs.map((job) => (
-                        <div key={job.id} className="group bg-white p-8 rounded-[2rem] border border-gray-100 shadow-lg shadow-gray-100/50 hover:border-[#008C9D]/30 transition-all duration-300 relative overflow-hidden">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-[#008C9D]/5 to-[#F4B41A]/5 rounded-full blur-2xl -mr-10 -mt-10 group-hover:scale-150 transition-transform duration-700"></div>
+                        <div key={job.id} className="group bg-white p-8 rounded-4xl border border-gray-100 shadow-lg shadow-gray-100/50 hover:border-[#008C9D]/30 transition-all duration-300 relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-linear-to-br from-[#008C9D]/5 to-[#F4B41A]/5 rounded-full blur-2xl -mr-10 -mt-10 group-hover:scale-150 transition-transform duration-700"></div>
 
                             <div className="relative z-10 flex flex-col md:flex-row justify-between gap-8">
                                 <div className="flex-1">

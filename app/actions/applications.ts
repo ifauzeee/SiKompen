@@ -3,7 +3,7 @@
 import { getSession } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+const API_URL = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
 
 export async function getApplicationsByStatus(status: 'PENDING' | 'ACCEPTED' | 'VERIFYING' = 'PENDING', supervisorId?: number) {
     const session = await getSession();
@@ -47,7 +47,7 @@ export async function submitJobProof(appId: number, proof1: string, proof2: stri
         revalidatePath('/dashboard/my-applications');
         revalidatePath('/dashboard/my-jobs');
         return { success: true };
-    } catch (e) {
+    } catch {
         return { error: "Gagal menghubungi server." };
     }
 }
@@ -74,7 +74,7 @@ export async function updateApplicationStatus(appId: number, status: 'ACCEPTED' 
         revalidatePath('/dashboard/my-jobs');
         revalidatePath('/my-applications');
         return { success: true };
-    } catch (e) {
+    } catch {
         return { error: 'Gagal menghubungi server.' };
     }
 }
@@ -97,7 +97,7 @@ export async function applyForJob(jobId: number) {
         revalidatePath('/jobs');
         revalidatePath('/dashboard');
         return { success: true };
-    } catch (e) {
+    } catch {
         return { error: "Gagal menghubungi server." };
     }
 }

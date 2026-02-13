@@ -3,7 +3,7 @@
 import { getSession } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+const API_URL = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
 
 export async function updateStudentHours(studentId: number, newHours: number, reason: string) {
     const session = await getSession();
@@ -27,7 +27,7 @@ export async function updateStudentHours(studentId: number, newHours: number, re
         revalidatePath('/dashboard');
         revalidatePath('/dashboard/users');
         return { success: true };
-    } catch (e) {
+    } catch {
         return { error: 'Gagal menghubungi server.' };
     }
 }
@@ -89,7 +89,7 @@ export async function updateSystemSetting(key: string, value: string) {
 
         revalidatePath('/dashboard/settings');
         return { success: true };
-    } catch (e) {
+    } catch {
         return { error: 'Gagal menghubungi server.' };
     }
 }
@@ -115,7 +115,7 @@ export async function importStudents(data: { nim: string; name: string; prodi: s
 
         revalidatePath('/dashboard/users');
         return { success: true, ...resData };
-    } catch (e) {
+    } catch {
         return { error: 'Gagal menghubungi server.' };
     }
 }

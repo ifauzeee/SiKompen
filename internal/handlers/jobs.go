@@ -82,7 +82,6 @@ func (h *JobHandler) UpdateJob(c *gin.Context) {
 		return
 	}
 
-	// Check if there are applications before changing hours
 	var count int64
 	h.DB.Model(&models.JobApplication{}).Where("job_id = ?", id).Count(&count)
 	if count > 0 && job.Hours != req.Hours {

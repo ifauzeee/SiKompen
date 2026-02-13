@@ -3,7 +3,7 @@ import { getSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+const API_URL = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
 
 async function getJobs(token?: string) {
     const headers: Record<string, string> = {};
@@ -14,14 +14,16 @@ async function getJobs(token?: string) {
     return await res.json();
 }
 
+import { JobApplication } from "@/types";
+
 export default async function JobsPage() {
     const session = await getSession();
     const jobs = await getJobs(session?.token);
 
     let appliedJobIds: number[] = [];
-    let userRole = session?.role;
+    const userRole = session?.role;
     let userTotalHours = 0;
-    let userId = session?.userId;
+    const userId = session?.userId;
 
     if (session) {
         const res = await fetch(`${API_URL}/me`, {
@@ -35,10 +37,10 @@ export default async function JobsPage() {
                 headers: { 'Authorization': `Bearer ${session.token}` }
             });
             if (appRes.ok) {
-                const apps = await appRes.json();
+                const apps: JobApplication[] = await appRes.json();
                 appliedJobIds = apps
-                    .filter((app: any) => app.userId === userId)
-                    .map((app: any) => app.jobId);
+                    .filter((app) => app.userId === userId)
+                    .map((app) => app.jobId);
             }
         }
     }

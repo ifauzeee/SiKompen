@@ -85,7 +85,6 @@ func (h *StatsHandler) GetDashboardData(c *gin.Context) {
 		return
 	}
 
-	// MAHASISWA
 	var completedHours int
 	for _, app := range user.Applications {
 		if app.Status == "COMPLETED" {

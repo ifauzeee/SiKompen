@@ -4,7 +4,9 @@ import MyJobsClient from "./MyJobsClient";
 
 export const dynamic = 'force-dynamic';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+const API_URL = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+
+import { Job } from "@/types";
 
 export default async function MyJobsPage() {
     const session = await getSession();
@@ -21,8 +23,8 @@ export default async function MyJobsPage() {
 
     if (!res.ok) return <div>Gagal mengambil data pekerjaan.</div>;
 
-    const allJobs = await res.json();
-    const jobs = allJobs.filter((job: any) => job.createdById === session.userId);
+    const allJobs: Job[] = await res.json();
+    const jobs = allJobs.filter((job) => job.createdById === session.userId);
 
     return <MyJobsClient jobs={jobs} />;
 }

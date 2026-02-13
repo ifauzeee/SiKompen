@@ -4,7 +4,9 @@ import SettingsClient from "./SettingsClient";
 
 export const dynamic = 'force-dynamic';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+const API_URL = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+
+import { SystemSettings } from "@/types";
 
 export default async function SettingsPage() {
     const session = await getSession();
@@ -20,7 +22,7 @@ export default async function SettingsPage() {
         next: { revalidate: 0 }
     });
 
-    const settings = res.ok ? await res.json() : [];
+    const settings: SystemSettings[] = res.ok ? await res.json() : [];
 
     const defaultSettings = [
         { key: 'semester_aktif', value: '2024/2025 Ganjil', description: 'Semester yang sedang aktif' },
@@ -29,7 +31,7 @@ export default async function SettingsPage() {
     ];
 
     const mergedSettings = defaultSettings.map(def => {
-        const existing = settings.find((s: any) => s.key === def.key);
+        const existing = settings.find((s) => s.key === def.key);
         return existing || def;
     });
 

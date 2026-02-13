@@ -30,6 +30,9 @@ export interface Job {
     createdById: number;
     createdAt: string;
     updatedAt: string;
+    _count?: {
+        applications: number;
+    };
 }
 
 export interface JobApplication {
@@ -39,9 +42,9 @@ export interface JobApplication {
     status: ApplicationStatus;
     appliedAt: string;
     updatedAt: string;
-    proofImage1?: string;
-    proofImage2?: string;
-    submissionNote?: string;
+    proofImage1: string | null;
+    proofImage2: string | null;
+    submissionNote: string | null;
     user?: User;
     job?: Job;
 }

@@ -4,7 +4,9 @@ import MyApplicationsClient from "./MyApplicationsClient";
 
 export const dynamic = "force-dynamic";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+const API_URL = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+
+import { JobApplication } from "@/types";
 
 export default async function MyApplicationsPage() {
     const session = await getSession();
@@ -19,27 +21,27 @@ export default async function MyApplicationsPage() {
 
     if (!res.ok) return <div>Gagal mengambil data.</div>;
 
-    const applications = await res.json();
+    const applications: JobApplication[] = await res.json();
 
-    // Fetch user for totalHours
+
     const userRes = await fetch(`${API_URL}/me`, {
         headers: { 'Authorization': `Bearer ${session.token}` }
     });
     const user = await userRes.json();
 
     const formattedApps = applications
-        .filter((app: any) => app.userId === session.userId)
-        .map((app: any) => ({
+        .filter((app) => app.userId === session.userId)
+        .map((app) => ({
             id: app.id,
             jobId: app.jobId,
-            jobTitle: app.job.title,
-            jobDescription: app.job.description,
-            hours: app.job.hours,
+            jobTitle: app.job?.title || 'Unknown',
+            jobDescription: app.job?.description || '-',
+            hours: app.job?.hours || 0,
             status: app.status as "PENDING" | "ACCEPTED" | "VERIFYING" | "COMPLETED" | "REJECTED",
             appliedAt: new Date(app.appliedAt).toLocaleDateString('id-ID'),
-            proofImage1: app.proofImage1,
-            proofImage2: app.proofImage2,
-            submissionNote: app.submissionNote,
+            proofImage1: app.proofImage1 || null,
+            proofImage2: app.proofImage2 || null,
+            submissionNote: app.submissionNote || null,
         }));
 
     return <MyApplicationsClient applications={formattedApps} userTotalHours={user.totalHours} />;

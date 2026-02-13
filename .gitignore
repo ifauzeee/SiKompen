@@ -43,8 +43,6 @@ yarn-error.log*
 # editor
 .vscode/
 
-/app/generated/prisma
-
 # local db
 *.db
 *.db-journal
@@ -53,10 +51,9 @@ yarn-error.log*
 
 # Go artifacts
 /main
+/bin/
 /cmd/api/main
-/internal/repository/sikompen.db
+*.exe
 
 # sensitive data
 scripts/data_import.txt
-.env
-.env.local

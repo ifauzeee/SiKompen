@@ -4,7 +4,7 @@ import (
 	"log"
 	"sikompen-backend/internal/models"
 
-	"gorm.io/driver/sqlite"
+	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 )
 
@@ -14,7 +14,6 @@ func InitDB(dbURL string) *gorm.DB {
 		log.Fatalf("failed to connect database: %v", err)
 	}
 
-	// Auto Migrate the schema
 	err = db.AutoMigrate(
 		&models.User{},
 		&models.Job{},

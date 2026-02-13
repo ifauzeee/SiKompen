@@ -3,7 +3,7 @@
 import { useFormStatus } from "react-dom";
 import { updateJob } from "@/app/actions/jobs";
 import { Clock, Users, AlertCircle } from "lucide-react";
-import { Job } from "@prisma/client";
+import { Job } from "@/types";
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";

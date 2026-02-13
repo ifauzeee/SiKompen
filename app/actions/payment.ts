@@ -1,18 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { z } from "zod";
+
 import { getSession } from "@/lib/session";
 
-const CreatePaymentSchema = z.object({
-    userId: z.number(),
-    amount: z.number().positive("Jumlah pembayaran harus positif"),
-    hoursEquivalent: z.number().int().nonnegative("Jam kompensasi tidak boleh negatif"),
-    proofUrl: z.string().url("URL bukti pembayaran tidak valid"),
-    note: z.string().optional()
-});
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+
+const API_URL = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
 
 export async function createPayment(userId: number, amount: number, hoursEquivalent: number, proofUrl: string, note?: string) {
     const session = await getSession();
@@ -35,7 +29,7 @@ export async function createPayment(userId: number, amount: number, hoursEquival
 
         revalidatePath('/dashboard/finance');
         return { success: true };
-    } catch (error) {
+    } catch {
         return { error: "Gagal menghubungi server" };
     }
 }
@@ -59,7 +53,7 @@ export async function verifyPayment(paymentId: number, status: 'APPROVED' | 'REJ
 
         revalidatePath('/dashboard/finance');
         return { success: true };
-    } catch (error) {
+    } catch {
         return { error: "Gagal menghubungi server" };
     }
 }

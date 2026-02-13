@@ -4,7 +4,9 @@ import ExportClient from "./ExportClient";
 
 export const dynamic = 'force-dynamic';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+const API_URL = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+
+import { User } from "@/types";
 
 export default async function ExportPage() {
     const session = await getSession();
@@ -22,11 +24,11 @@ export default async function ExportPage() {
 
     if (!res.ok) return <div>Gagal mengambil data export.</div>;
 
-    const allUsers = await res.json();
-    const students = allUsers.filter((u: any) => u.role === 'MAHASISWA');
+    const allUsers: User[] = await res.json();
+    const students = allUsers.filter((u) => u.role === 'MAHASISWA');
 
-    const prodis = [...new Set(students.map((s: any) => s.prodi).filter(Boolean))] as string[];
-    const kelasList = [...new Set(students.map((s: any) => s.kelas).filter(Boolean))] as string[];
+    const prodis = [...new Set(students.map((s) => s.prodi).filter(Boolean))] as string[];
+    const kelasList = [...new Set(students.map((s) => s.kelas).filter(Boolean))] as string[];
 
     return <ExportClient prodis={prodis} kelasList={kelasList} />;
 }

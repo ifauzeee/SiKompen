@@ -4,7 +4,9 @@ import ClearanceClient from "./ClearanceClient";
 
 export const dynamic = 'force-dynamic';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+const API_URL = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+
+import { SystemSettings } from "@/types";
 
 export default async function ClearancePage() {
     const session = await getSession();
@@ -22,9 +24,9 @@ export default async function ClearancePage() {
     if (!userRes.ok) return <div>Gagal mengambil data user.</div>;
 
     const user = await userRes.json();
-    const settings = settingsRes.ok ? await settingsRes.json() : [];
+    const settings: SystemSettings[] = settingsRes.ok ? await settingsRes.json() : [];
 
-    const bankSetting = settings.find((s: any) => s.key === 'bank_account');
+    const bankSetting = settings.find((s) => s.key === 'bank_account');
     const bankInfo = bankSetting?.value || 'BNI 1234567890 a.n. Politeknik Negeri Jakarta';
 
     return <ClearanceClient

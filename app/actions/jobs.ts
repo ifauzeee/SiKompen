@@ -3,7 +3,7 @@
 import { getSession } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+const API_URL = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
 
 export async function createJob(formData: FormData) {
     const session = await getSession();
@@ -102,7 +102,7 @@ export async function updateJob(id: number, formData: FormData) {
     }
 }
 
-export async function toggleJobStatus(jobId: number, currentStatus: string) {
+export async function toggleJobStatus(jobId: number, _currentStatus: string) {
     const session = await getSession();
     if (!session || !['ADMIN', 'PENGAWAS'].includes(session.role)) return { error: 'Unauthorized' };
 

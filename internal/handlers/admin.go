@@ -121,7 +121,7 @@ func (h *AdminHandler) UpdateSystemSetting(c *gin.Context) {
 		var setting models.SystemSettings
 		err := tx.Where("key = ?", key).First(&setting).Error
 		if err != nil {
-			// Create new
+
 			setting = models.SystemSettings{
 				Key:       key,
 				Value:     req.Value,
@@ -131,7 +131,7 @@ func (h *AdminHandler) UpdateSystemSetting(c *gin.Context) {
 				return err
 			}
 		} else {
-			// Update
+
 			setting.Value = req.Value
 			setting.UpdatedAt = time.Now()
 			if err := tx.Save(&setting).Error; err != nil {
@@ -187,7 +187,6 @@ func (h *AdminHandler) ImportStudents(c *gin.Context) {
 			continue
 		}
 
-		// Hash default password (same as NIM)
 		hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(s.NIM), bcrypt.DefaultCost)
 
 		user := models.User{

@@ -2,7 +2,7 @@ import { getSession } from "@/lib/session";
 import FinanceDashboardClient from "./FinanceDashboardClient";
 import { redirect } from "next/navigation";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+const API_URL = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
 
 export default async function FinancePage() {
     const session = await getSession();

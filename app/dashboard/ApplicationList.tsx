@@ -8,7 +8,7 @@ type Application = {
     id: number;
     user: { name: string | null; nim: string | null; totalHours: number };
     job: { title: string; hours: number };
-    appliedAt: Date;
+    appliedAt: string;
     proofImage1?: string | null;
     proofImage2?: string | null;
     submissionNote?: string | null;
@@ -59,8 +59,8 @@ export default function ApplicationList({ applications, variant, title }: Applic
 
     if (optimisticApps.length === 0) {
         return (
-            <div className="flex flex-col items-center justify-center py-12 text-center bg-gray-50/50 border-2 border-dashed border-gray-100 rounded-[2rem] md:rounded-[2.5rem]">
-                <div className="w-16 h-16 bg-white rounded-[2rem] shadow-xl shadow-gray-100 flex items-center justify-center mb-4 transform rotate-3 transition-transform hover:rotate-6 duration-300">
+            <div className="flex flex-col items-center justify-center py-12 text-center bg-gray-50/50 border-2 border-dashed border-gray-100 rounded-4xl md:rounded-[2.5rem]">
+                <div className="w-16 h-16 bg-white rounded-4xl shadow-xl shadow-gray-100 flex items-center justify-center mb-4 transform rotate-3 transition-transform hover:rotate-6 duration-300">
                     <FileCheck size={32} className="text-[#008C9D]" />
                 </div>
                 <h3 className="text-lg font-black text-gray-900 mb-1">{title || "Semua Beres!"}</h3>
@@ -89,13 +89,13 @@ export default function ApplicationList({ applications, variant, title }: Applic
                             <div className="flex-1 pl-2 lg:pl-0">
                                 <div className="flex items-center gap-4 mb-3">
                                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-lg shrink-0 ${variant === 'VERIFYING'
-                                        ? 'bg-gradient-to-br from-purple-500 to-purple-700 shadow-purple-500/20'
-                                        : 'bg-gradient-to-br from-[#008C9D] to-[#007A8A] shadow-[#008C9D]/20'
+                                        ? 'bg-linear-to-br from-purple-500 to-purple-700 shadow-purple-500/20'
+                                        : 'bg-linear-to-br from-[#008C9D] to-[#007A8A] shadow-[#008C9D]/20'
                                         }`}>
                                         {app.user.name ? app.user.name.charAt(0).toUpperCase() : 'M'}
                                     </div>
                                     <div className="min-w-0">
-                                        <h4 className="font-bold text-gray-900 group-hover:text-[#008C9D] transition-colors line-clamp-1 break-words">
+                                        <h4 className="font-bold text-gray-900 group-hover:text-[#008C9D] transition-colors line-clamp-1 wrap-break-word">
                                             {app.user.name || 'Mahasiswa'}
                                         </h4>
                                         <div className="flex items-center gap-2 mt-0.5 flex-wrap">

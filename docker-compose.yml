@@ -6,11 +6,11 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./sikompen_v2.db:/app/sikompen_v2.db
+      - ./data:/app/data
     env_file: .env
     environment:
       - PORT=8080
-      - DATABASE_URL_GO=sikompen_v2.db
+      - DATABASE_URL_GO=data/sikompen.db
 
   frontend:
     build:
@@ -23,5 +23,6 @@ services:
     env_file: .env
     environment:
       - PORT=3000
+      - INTERNAL_API_URL=http://backend:8080/api
     depends_on:
       - backend

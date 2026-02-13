@@ -2,22 +2,11 @@
 
 import { getSession } from "@/lib/session";
 import { revalidatePath } from "next/cache";
-import { z } from "zod";
 
-const CreateUserSchema = z.object({
-    name: z.string().min(1, "Nama wajib diisi"),
-    username: z.string().min(1, "Username wajib diisi"),
-    password: z.string().min(6, "Password minimal 6 karakter"),
-    role: z.enum(['MAHASISWA', 'ADMIN', 'KEUANGAN', 'PENGAWAS']),
-    nim: z.string().nullable().optional(),
-    prodi: z.string().nullable().optional(),
-    kelas: z.string().nullable().optional(),
-    totalHours: z.number().int().nonnegative().default(0)
-});
 
-import { hashPassword } from "@/lib/password";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+
+const API_URL = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
 
 export async function createUser(formData: FormData) {
     const session = await getSession();
@@ -51,7 +40,7 @@ export async function createUser(formData: FormData) {
 
         revalidatePath('/dashboard/users');
         return { success: true };
-    } catch (e) {
+    } catch {
         return { error: 'Gagal menghubungi server.' };
     }
 }
