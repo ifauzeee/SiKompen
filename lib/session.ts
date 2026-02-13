@@ -9,6 +9,7 @@ export type SessionPayload = {
     userId: number
     role: string
     username: string
+    token: string
 }
 
 export async function createSession(payload: SessionPayload) {

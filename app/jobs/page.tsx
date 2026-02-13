@@ -1,34 +1,47 @@
-import { prisma } from "@/lib/prisma";
 import JobsList from "./JobsList";
-import { getSessionUser } from "@/app/actions/auth";
+import { getSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
-async function getJobs() {
-    return await prisma.job.findMany({
-        orderBy: {
-            createdAt: "desc",
-        },
-        include: {
-            createdBy: {
-                select: { name: true },
-            },
-        },
-    });
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+
+async function getJobs(token?: string) {
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const res = await fetch(`${API_URL}/jobs`, { headers, next: { revalidate: 0 } });
+    if (!res.ok) return [];
+    return await res.json();
 }
 
 export default async function JobsPage() {
-    const jobs = await getJobs();
-    const user = await getSessionUser();
+    const session = await getSession();
+    const jobs = await getJobs(session?.token);
 
     let appliedJobIds: number[] = [];
-    if (user) {
-        const apps = await prisma.jobApplication.findMany({
-            where: { userId: user.id },
-            select: { jobId: true }
+    let userRole = session?.role;
+    let userTotalHours = 0;
+    let userId = session?.userId;
+
+    if (session) {
+        const res = await fetch(`${API_URL}/me`, {
+            headers: { 'Authorization': `Bearer ${session.token}` }
         });
-        appliedJobIds = apps.map(app => app.jobId);
+        if (res.ok) {
+            const userData = await res.json();
+            userTotalHours = userData.totalHours;
+
+            const appRes = await fetch(`${API_URL}/applications`, {
+                headers: { 'Authorization': `Bearer ${session.token}` }
+            });
+            if (appRes.ok) {
+                const apps = await appRes.json();
+                appliedJobIds = apps
+                    .filter((app: any) => app.userId === userId)
+                    .map((app: any) => app.jobId);
+            }
+        }
     }
 
-    return <JobsList jobs={jobs} appliedJobIds={appliedJobIds} userRole={user?.role} userTotalHours={user?.totalHours} />;
+    return <JobsList jobs={jobs} appliedJobIds={appliedJobIds} userRole={userRole} userTotalHours={userTotalHours} />;
 }

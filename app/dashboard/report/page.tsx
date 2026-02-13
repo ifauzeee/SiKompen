@@ -1,37 +1,40 @@
-import { getSessionUser } from "@/app/actions/auth";
+import { getSession } from "@/lib/session";
 import { redirect } from "next/navigation";
 import ReportClient from "./ReportClient";
-import { prisma } from "@/lib/prisma";
+
+import { User } from "@/types";
 
 export const dynamic = 'force-dynamic';
 
-export default async function ReportPage() {
-    const user = await getSessionUser();
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
 
-    if (!user || user.role !== 'ADMIN') {
+export default async function ReportPage() {
+    const session = await getSession();
+
+    if (!session || session.role !== 'ADMIN') {
         redirect('/dashboard');
     }
 
-    const students = await prisma.user.findMany({
-        where: { role: 'MAHASISWA' },
-        select: {
-            nim: true,
-            name: true,
-            prodi: true,
-            kelas: true,
-            totalHours: true
+    const res = await fetch(`${API_URL}/admin/users`, {
+        headers: {
+            'Authorization': `Bearer ${session.token}`
         },
-        orderBy: [{ kelas: 'asc' }, { name: 'asc' }]
+        next: { revalidate: 0 }
     });
+
+    if (!res.ok) return <div>Gagal mengambil data laporan.</div>;
+
+    const allUsers: User[] = await res.json();
+    const students = allUsers.filter((u) => u.role === 'MAHASISWA');
 
     const stats = {
         totalStudents: students.length,
-        studentsWithDebt: students.filter(s => s.totalHours > 0).length,
+        studentsWithDebt: students.filter((s) => s.totalHours > 0).length,
         totalDebtHours: students.reduce((sum, s) => sum + s.totalHours, 0),
         averageDebt: students.length > 0 ? Math.round(students.reduce((sum, s) => sum + s.totalHours, 0) / students.length) : 0
     };
 
-    const kelasList = [...new Set(students.map(s => s.kelas).filter(Boolean))] as string[];
+    const kelasList = [...new Set(students.map((s) => s.kelas).filter(Boolean))] as string[];
 
     return <ReportClient students={students} stats={stats} kelasList={kelasList} />;
 }

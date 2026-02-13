@@ -13,7 +13,7 @@ import {
     Users
 } from "lucide-react";
 import ApplicationList from "./ApplicationList";
-import { User, JobApplication } from "@prisma/client";
+import { User, JobApplication } from "@/types";
 
 interface AdminDashboardProps {
     user: User;

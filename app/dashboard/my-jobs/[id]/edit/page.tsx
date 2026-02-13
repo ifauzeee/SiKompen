@@ -1,24 +1,35 @@
-import { prisma } from "@/lib/prisma";
-import { getSessionUser } from "@/app/actions/auth";
+import { getSession } from "@/lib/session";
 import { redirect } from "next/navigation";
 import EditJobClient from "./EditJobClient";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+
 export default async function EditJobPage({ params }: { params: Promise<{ id: string }> }) {
-    const user = await getSessionUser();
+    const session = await getSession();
     const { id } = await params;
 
     const jobId = parseInt(id);
     if (isNaN(jobId)) redirect('/dashboard/my-jobs');
 
-    const job = await prisma.job.findUnique({
-        where: { id: jobId }
+    if (!session) redirect('/login');
+
+    const res = await fetch(`${API_URL}/jobs`, {
+        headers: {
+            'Authorization': `Bearer ${session.token}`
+        },
+        next: { revalidate: 0 }
     });
+
+    if (!res.ok) redirect('/dashboard/my-jobs');
+
+    const allJobs = await res.json();
+    const job = allJobs.find((j: any) => j.id === jobId);
 
     if (!job) redirect('/dashboard/my-jobs');
 
-    if (!user || (user.role !== 'ADMIN' && job.createdById !== user.id)) {
+    if (session.role !== 'ADMIN' && job.createdById !== session.userId) {
         redirect('/dashboard/my-jobs');
     }
 

@@ -8,7 +8,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import DeleteModal from "@/components/DeleteModal";
 import EditHoursModal from "@/components/EditHoursModal";
-import { User } from "@prisma/client";
+import { User } from "@/types";
 
 type ViewLevel = 'role' | 'prodi' | 'kelas' | 'users';
 

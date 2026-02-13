@@ -1,70 +1,33 @@
-import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/session";
 import FinanceDashboardClient from "./FinanceDashboardClient";
 import { redirect } from "next/navigation";
-import { getSessionUser } from "@/app/actions/auth";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
 
 export default async function FinancePage() {
-    const user = await getSessionUser();
+    const session = await getSession();
 
-    if (!user || (user.role !== 'KEUANGAN' && user.role !== 'ADMIN')) {
+    if (!session || (session.role !== 'KEUANGAN' && session.role !== 'ADMIN')) {
         redirect('/dashboard');
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const totalIncome = await (prisma as any).payment.aggregate({
-        _sum: { amount: true },
-        where: { status: 'APPROVED' }
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    }).then((res: any) => res._sum.amount || 0);
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const pendingIncome = await (prisma as any).payment.aggregate({
-        _sum: { amount: true },
-        where: { status: 'PENDING' }
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    }).then((res: any) => res._sum.amount || 0);
-
-    const totalDebtors = await prisma.user.count({
-        where: { role: 'MAHASISWA', totalHours: { gt: 0 } }
-    });
-
-    const totalOutstandingHours = await prisma.user.aggregate({
-        _sum: { totalHours: true },
-        where: { role: 'MAHASISWA' }
-    }).then(res => res._sum.totalHours || 0);
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const payments = await (prisma as any).payment.findMany({
-        where: { status: 'PENDING' },
-        include: {
-            user: { select: { name: true, nim: true, totalHours: true, kelas: true } }
+    const res = await fetch(`${API_URL}/finance/stats`, {
+        headers: {
+            'Authorization': `Bearer ${session.token}`
         },
-        orderBy: { createdAt: 'desc' }
+        next: { revalidate: 0 }
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const history = await (prisma as any).payment.findMany({
-        where: { status: { not: 'PENDING' } },
-        take: 10,
-        include: {
-            user: { select: { name: true, nim: true } }
-        },
-        orderBy: { updatedAt: 'desc' }
-    });
+    if (!res.ok) return <div>Gagal mengambil data finance.</div>;
 
-    const debtors = await prisma.user.findMany({
-        where: { role: 'MAHASISWA', totalHours: { gt: 0 } },
-        orderBy: { totalHours: 'desc' },
-        take: 10,
-        select: { id: true, name: true, nim: true, totalHours: true, kelas: true }
-    });
+    const data = await res.json();
 
     return (
         <FinanceDashboardClient
-            payments={payments}
-            stats={{ totalIncome, pendingIncome, totalDebtors, totalOutstandingHours }}
-            history={history}
-            debtors={debtors}
+            payments={data.payments}
+            stats={data.stats}
+            history={data.history}
+            debtors={data.debtors}
         />
     );
 }

@@ -1,187 +1,143 @@
 "use server";
 
-import { prisma } from "@/lib/prisma";
-import { getSessionUser } from "./auth";
+import { getSession } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+
 export async function updateStudentHours(studentId: number, newHours: number, reason: string) {
-    const user = await getSessionUser();
-    if (!user || user.role !== 'ADMIN') {
+    const session = await getSession();
+    if (!session || session.role !== 'ADMIN') {
         return { error: 'Unauthorized. Admin access required.' };
     }
 
     try {
-        const student = await prisma.user.findUnique({ where: { id: studentId } });
-        if (!student) return { error: 'Mahasiswa tidak ditemukan.' };
-
-        const oldHours = student.totalHours;
-
-        await prisma.user.update({
-            where: { id: studentId },
-            data: { totalHours: Math.max(0, newHours) }
+        const response = await fetch(`${API_URL}/admin/users/${studentId}/hours`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.token}`
+            },
+            body: JSON.stringify({ newHours, reason })
         });
 
-        await prisma.activityLog.create({
-            data: {
-                userId: user.id,
-                action: 'UPDATE_HOURS',
-                targetType: 'USER',
-                targetId: studentId,
-                details: JSON.stringify({
-                    studentName: student.name,
-                    oldHours,
-                    newHours,
-                    reason
-                })
-            }
-        });
+        const data = await response.json();
+        if (!response.ok) return { error: data.error || 'Gagal mengupdate jam hutang.' };
 
         revalidatePath('/dashboard');
         revalidatePath('/dashboard/users');
         return { success: true };
-    } catch (e: unknown) {
-        console.error(e);
-        return { error: 'Gagal mengupdate jam hutang.' };
+    } catch (e) {
+        return { error: 'Gagal menghubungi server.' };
     }
 }
 
 export async function getActivityLogs(limit: number = 50) {
-    const user = await getSessionUser();
-    if (!user || user.role !== 'ADMIN') return [];
+    const session = await getSession();
+    if (!session || session.role !== 'ADMIN') return [];
 
     try {
-        const logs = await prisma.activityLog.findMany({
-            orderBy: { createdAt: 'desc' },
-            take: limit
+        const response = await fetch(`${API_URL}/admin/logs?limit=${limit}`, {
+            headers: {
+                'Authorization': `Bearer ${session.token}`
+            }
         });
-        return logs;
+
+        if (!response.ok) return [];
+        return await response.json();
     } catch {
         return [];
     }
 }
 
 export async function getSystemSettings() {
-    const user = await getSessionUser();
-    if (!user || user.role !== 'ADMIN') return [];
+    const session = await getSession();
+    if (!session || session.role !== 'ADMIN') return [];
 
     try {
-        return await prisma.systemSettings.findMany();
+        const response = await fetch(`${API_URL}/admin/settings`, {
+            headers: {
+                'Authorization': `Bearer ${session.token}`
+            }
+        });
+
+        if (!response.ok) return [];
+        return await response.json();
     } catch {
         return [];
     }
 }
 
 export async function updateSystemSetting(key: string, value: string) {
-    const user = await getSessionUser();
-    if (!user || user.role !== 'ADMIN') {
+    const session = await getSession();
+    if (!session || session.role !== 'ADMIN') {
         return { error: 'Unauthorized' };
     }
 
     try {
-        await prisma.systemSettings.upsert({
-            where: { key },
-            update: { value },
-            create: { key, value }
+        const response = await fetch(`${API_URL}/admin/settings/${key}`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.token}`
+            },
+            body: JSON.stringify({ value })
         });
 
-        await prisma.activityLog.create({
-            data: {
-                userId: user.id,
-                action: 'UPDATE_SETTINGS',
-                targetType: 'SYSTEM',
-                details: JSON.stringify({ key, value })
-            }
-        });
+        const data = await response.json();
+        if (!response.ok) return { error: data.error || 'Gagal menyimpan pengaturan.' };
 
         revalidatePath('/dashboard/settings');
         return { success: true };
-    } catch (e: unknown) {
-        console.error(e);
-        return { error: 'Gagal menyimpan pengaturan.' };
+    } catch (e) {
+        return { error: 'Gagal menghubungi server.' };
     }
 }
 
 export async function importStudents(data: { nim: string; name: string; prodi: string; kelas: string }[]) {
-    const user = await getSessionUser();
-    if (!user || user.role !== 'ADMIN') {
+    const session = await getSession();
+    if (!session || session.role !== 'ADMIN') {
         return { error: 'Unauthorized' };
     }
 
-    let successCount = 0;
-    let skipCount = 0;
-    let errorCount = 0;
+    try {
+        const response = await fetch(`${API_URL}/admin/students/import`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.token}`
+            },
+            body: JSON.stringify(data)
+        });
 
-    for (const student of data) {
-        if (!student.nim || !student.name) {
-            skipCount++;
-            continue;
-        }
+        const resData = await response.json();
+        if (!response.ok) return { error: resData.error || 'Gagal mengimport data.' };
 
-        try {
-            const existing = await prisma.user.findUnique({
-                where: { username: student.nim }
-            });
-
-            if (existing) {
-                skipCount++;
-                continue;
-            }
-
-            await prisma.user.create({
-                data: {
-                    username: student.nim,
-                    nim: student.nim,
-                    name: student.name,
-                    prodi: student.prodi,
-                    kelas: student.kelas,
-                    password: student.nim,
-                    role: 'MAHASISWA',
-                    totalHours: 0
-                }
-            });
-            successCount++;
-        } catch {
-            errorCount++;
-        }
+        revalidatePath('/dashboard/users');
+        return { success: true, ...resData };
+    } catch (e) {
+        return { error: 'Gagal menghubungi server.' };
     }
-
-    await prisma.activityLog.create({
-        data: {
-            userId: user.id,
-            action: 'IMPORT_STUDENTS',
-            targetType: 'USER',
-            details: JSON.stringify({ successCount, skipCount, errorCount })
-        }
-    });
-
-    revalidatePath('/dashboard/users');
-    return { success: true, successCount, skipCount, errorCount };
 }
 
 export async function getStudentsForExport(filters?: { prodi?: string; kelas?: string; hasDebt?: boolean }) {
-    const user = await getSessionUser();
-    if (!user || user.role !== 'ADMIN') return [];
+    const session = await getSession();
+    if (!session || session.role !== 'ADMIN') return [];
 
     try {
-        const where: Record<string, unknown> = { role: 'MAHASISWA' };
+        const url = new URL(`${API_URL}/admin/students/export`);
+        if (filters?.prodi) url.searchParams.append('prodi', filters.prodi);
+        if (filters?.kelas) url.searchParams.append('kelas', filters.kelas);
+        if (filters?.hasDebt) url.searchParams.append('hasDebt', 'true');
 
-        if (filters?.prodi) where.prodi = filters.prodi;
-        if (filters?.kelas) where.kelas = filters.kelas;
-        if (filters?.hasDebt) where.totalHours = { gt: 0 };
-
-        const students = await prisma.user.findMany({
-            where,
-            select: {
-                nim: true,
-                name: true,
-                prodi: true,
-                kelas: true,
-                totalHours: true
-            },
-            orderBy: [{ kelas: 'asc' }, { name: 'asc' }]
+        const response = await fetch(url.toString(), {
+            headers: {
+                'Authorization': `Bearer ${session.token}`
+            }
         });
 
-        return students;
+        if (!response.ok) return [];
+        return await response.json();
     } catch {
         return [];
     }

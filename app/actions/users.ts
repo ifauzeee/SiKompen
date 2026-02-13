@@ -1,10 +1,8 @@
 "use server";
 
-import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { User } from "@prisma/client";
 
 const CreateUserSchema = z.object({
     name: z.string().min(1, "Nama wajib diisi"),
@@ -19,61 +17,42 @@ const CreateUserSchema = z.object({
 
 import { hashPassword } from "@/lib/password";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+
 export async function createUser(formData: FormData) {
     const session = await getSession();
-
     if (!session || session.role !== 'ADMIN') {
         return { error: 'Unauthorized. Admin access required.' };
     }
 
-    const rawData = {
-        name: formData.get('name'),
-        password: formData.get('password'),
-        role: formData.get('role'),
-        nim: (formData.get('nim') as string)?.trim() || undefined,
-        prodi: (formData.get('prodi') as string)?.trim() || undefined,
-        kelas: (formData.get('kelas') as string)?.trim() || undefined,
-        username: (formData.get('username') as string)?.trim(),
+    const payload = {
+        name: formData.get('name') as string,
+        username: formData.get('username') as string,
+        password: formData.get('password') as string,
+        role: formData.get('role') as string,
+        nim: (formData.get('nim') as string)?.trim() || "",
+        prodi: (formData.get('prodi') as string)?.trim() || "",
+        kelas: (formData.get('kelas') as string)?.trim() || "",
         totalHours: formData.get('totalHours') ? parseInt(formData.get('totalHours') as string, 10) : 0
     };
 
-    if (!rawData.username && rawData.nim) {
-        rawData.username = rawData.nim;
-    }
-
-    const parsed = CreateUserSchema.safeParse(rawData);
-
-    if (!parsed.success) {
-        const errs = parsed.error.flatten().fieldErrors;
-        return { error: Object.values(errs).flat()[0] || "Invalid data" };
-    }
-
-    const data = parsed.data;
-
     try {
-        const existing = await prisma.user.findUnique({ where: { username: data.username } });
-        if (existing) return { error: 'Username sudah terdaftar.' };
-
-        const hashedPassword = await hashPassword(data.password);
-
-        await prisma.user.create({
-            data: {
-                name: data.name,
-                username: data.username,
-                password: hashedPassword,
-                role: data.role,
-                nim: data.nim,
-                prodi: data.prodi,
-                kelas: data.kelas,
-                totalHours: data.totalHours,
-            }
+        const response = await fetch(`${API_URL}/admin/users`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.token}`
+            },
+            body: JSON.stringify(payload)
         });
+
+        const data = await response.json();
+        if (!response.ok) return { error: data.error || 'Gagal membuat user.' };
 
         revalidatePath('/dashboard/users');
         return { success: true };
     } catch (e) {
-        console.error(e);
-        return { error: 'Gagal membuat user.' };
+        return { error: 'Gagal menghubungi server.' };
     }
 }
 
@@ -81,16 +60,21 @@ export async function deleteUser(userId: number) {
     const session = await getSession();
     if (!session || session.role !== 'ADMIN') return { error: 'Unauthorized' };
 
-    if (session.userId === userId) {
-        return { error: "Tidak dapat menghapus akun sendiri." };
-    }
-
     try {
-        await prisma.user.delete({ where: { id: userId } });
+        const response = await fetch(`${API_URL}/admin/users/${userId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${session.token}`
+            }
+        });
+
+        const data = await response.json();
+        if (!response.ok) return { error: data.error || 'Gagal menghapus user.' };
+
         revalidatePath('/dashboard/users');
         return { success: true };
     } catch {
-        return { error: 'Gagal menghapus user.' };
+        return { error: 'Gagal menghubungi server.' };
     }
 }
 
@@ -98,17 +82,16 @@ export async function getUsers() {
     const session = await getSession();
     if (!session || session.role !== 'ADMIN') return [];
 
-    const users = await prisma.user.findMany({
-        orderBy: { role: 'asc' }
-    });
+    try {
+        const response = await fetch(`${API_URL}/admin/users`, {
+            headers: {
+                'Authorization': `Bearer ${session.token}`
+            }
+        });
 
-    return users.map(user => {
-        const { password: _password, createdAt, updatedAt, ...safeUser } = user;
-
-        return {
-            ...safeUser,
-            createdAt: createdAt.toISOString(),
-            updatedAt: updatedAt.toISOString()
-        };
-    }) as unknown as User[];
+        if (!response.ok) return [];
+        return await response.json();
+    } catch {
+        return [];
+    }
 }

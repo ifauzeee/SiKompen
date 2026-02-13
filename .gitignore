@@ -47,6 +47,16 @@ yarn-error.log*
 
 # local db
 *.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# Go artifacts
+/main
+/cmd/api/main
+/internal/repository/sikompen.db
 
 # sensitive data
 scripts/data_import.txt
+.env
+.env.local

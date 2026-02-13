@@ -1,12 +1,11 @@
-import { prisma } from "@/lib/prisma";
 import DashboardClient from "./DashboardClient";
 import AdminDashboard from "./AdminDashboard";
 import SupervisorDashboard from "./SupervisorDashboard";
-import { getSessionUser } from "@/app/actions/auth";
+import { getSession } from "@/lib/session";
 import { getApplicationsByStatus } from "@/app/actions/applications";
 import { redirect } from "next/navigation";
 
-import { User, JobApplication } from "@prisma/client";
+import { User, JobApplication } from "@/types";
 
 interface AdminStats {
     totalStudents: number;
@@ -44,161 +43,89 @@ type DashboardData =
 
 export const dynamic = 'force-dynamic';
 
-async function getDashboardData() {
-    const sessionUser = await getSessionUser();
-    if (!sessionUser) return null;
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
 
-    const user = await prisma.user.findUnique({
-        where: { id: sessionUser.id },
-        include: {
-            applications: {
-                include: { job: true },
-                orderBy: { appliedAt: 'desc' },
+async function getDashboardData() {
+    const session = await getSession();
+    if (!session) return null;
+
+    try {
+        const response = await fetch(`${API_URL}/dashboard/stats`, {
+            headers: {
+                'Authorization': `Bearer ${session.token}`
+            },
+            next: { revalidate: 0 } // force dynamic
+        });
+
+        if (!response.ok) return null;
+
+        const data = await response.json();
+
+        // Fetch additional data if needed (like applications)
+        if (data.role === 'ADMIN' || data.role === 'PENGAWAS') {
+            const pendingApps = await getApplicationsByStatus('PENDING');
+            const acceptedApps = await getApplicationsByStatus('ACCEPTED');
+            data.applications = pendingApps;
+            data.acceptedApplications = acceptedApps;
+
+            if (data.role === 'PENGAWAS') {
+                data.verifyingApplications = await getApplicationsByStatus('VERIFYING');
             }
         }
-    });
 
-    if (!user) return null;
+        if (data.role === 'MAHASISWA') {
+            // Transform activities for student
+            const user = data.user;
+            const activities = user.Applications.map((app: any) => {
+                const config: Record<string, { type: 'APPROVED' | 'DONE' | 'WARNING', title: string, desc: string }> = {
+                    ACCEPTED: {
+                        type: 'APPROVED',
+                        title: 'Lamaran Disetujui',
+                        desc: `Anda diterima untuk pekerjaan: ${app.Job.Title}. Segera kerjakan!`
+                    },
+                    PENDING: {
+                        type: 'WARNING',
+                        title: 'Menunggu Konfirmasi',
+                        desc: `Lamaran untuk ${app.Job.Title} sedang ditinjau.`
+                    },
+                    COMPLETED: {
+                        type: 'DONE',
+                        title: 'Tugas Selesai',
+                        desc: `Anda telah menyelesaikan tugas: ${app.Job.Title} (+${app.Job.Hours} Jam)`
+                    },
+                    REJECTED: {
+                        type: 'WARNING',
+                        title: 'Lamaran Ditolak',
+                        desc: `Mohon maaf, lamaran untuk ${app.Job.Title} tidak disetujui.`
+                    }
+                };
 
-    const { password: _password, ...userWithoutPassword } = user;
-    const cleanUser = userWithoutPassword as unknown as User;
+                const state = config[app.Status] || config.PENDING;
 
-    if (cleanUser.role === 'KEUANGAN') {
-        return {
-            role: 'KEUANGAN',
-            user: { ...cleanUser, role: 'KEUANGAN' }
-        };
-    }
+                return {
+                    id: app.ID,
+                    ...state,
+                    time: new Date(app.CreatedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })
+                };
+            });
 
-    if (cleanUser.role === 'ADMIN') {
-        const totalStudents = await prisma.user.count({ where: { role: 'MAHASISWA' } });
-        const activeJobs = await prisma.job.count({ where: { status: 'OPEN' } });
-        const pendingValidations = await prisma.jobApplication.count({ where: { status: 'PENDING' } });
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const totalIncome = await (prisma as any).payment.aggregate({
-            _sum: { amount: true },
-            where: { status: 'APPROVED' }
-        }).then((res: any) => res._sum.amount || 0); // eslint-disable-line @typescript-eslint/no-explicit-any
-
-        const pendingApps = await getApplicationsByStatus('PENDING');
-        const acceptedApps = await getApplicationsByStatus('ACCEPTED');
-
-        const topDebtors = await prisma.user.findMany({
-            where: { role: 'MAHASISWA', totalHours: { gt: 0 } },
-            orderBy: { totalHours: 'desc' },
-            take: 5,
-            select: { name: true, nim: true, totalHours: true }
-        });
-
-        return {
-            role: 'ADMIN',
-            user: { ...cleanUser, role: 'ADMIN' },
-            adminStats: {
-                totalStudents,
-                activeJobs,
-                pendingValidations,
-                totalIncome
-            },
-            applications: pendingApps,
-            acceptedApplications: acceptedApps,
-            topDebtors
-        };
-    }
-
-    if (cleanUser.role === 'PENGAWAS') {
-        const myJobs = await prisma.job.count({ where: { createdById: cleanUser.id } });
-
-        const pendingValidations = await prisma.jobApplication.count({
-            where: {
-                status: 'PENDING',
-                job: { createdById: cleanUser.id }
+            if (user.TotalHours > 20) {
+                activities.unshift({
+                    id: 999,
+                    type: 'WARNING',
+                    title: 'Peringatan Kompen',
+                    desc: `Sisa tanggungan Anda ${user.TotalHours} jam. Segera selesaikan sebelum semester berakhir!`,
+                    time: 'Hari ini'
+                });
             }
-        });
+            data.activities = activities.slice(0, 4);
+        }
 
-        const verifyingCount = await prisma.jobApplication.count({
-            where: {
-                status: 'VERIFYING',
-                job: { createdById: cleanUser.id }
-            }
-        });
-
-        const pendingApps = await getApplicationsByStatus('PENDING', cleanUser.id);
-        const acceptedApps = await getApplicationsByStatus('ACCEPTED', cleanUser.id);
-        const verifyingApps = await getApplicationsByStatus('VERIFYING', cleanUser.id);
-
-        return {
-            role: 'PENGAWAS',
-            user: { ...cleanUser, role: 'PENGAWAS' },
-            supervisorStats: {
-                myJobs,
-                pendingValidations,
-                verifyingCount
-            },
-            applications: pendingApps,
-            acceptedApplications: acceptedApps,
-            verifyingApplications: verifyingApps
-        };
+        return data;
+    } catch (_e) {
+        console.error('Dashboard Data Fetch Error:', _e);
+        return null;
     }
-
-    const activeApps = user.applications.filter(app => ['ACCEPTED', 'PENDING'].includes(app.status));
-    const completedApps = user.applications.filter(app => app.status === 'COMPLETED');
-
-    const completedHours = completedApps.reduce((sum, app) => sum + app.job.hours, 0);
-
-    const activities = user.applications.map(app => {
-        const config: Record<string, { type: 'APPROVED' | 'DONE' | 'WARNING', title: string, desc: string }> = {
-            ACCEPTED: {
-                type: 'APPROVED',
-                title: 'Lamaran Disetujui',
-                desc: `Anda diterima untuk pekerjaan: ${app.job.title}. Segera kerjakan!`
-            },
-            PENDING: {
-                type: 'WARNING',
-                title: 'Menunggu Konfirmasi',
-                desc: `Lamaran untuk ${app.job.title} sedang ditinjau.`
-            },
-            COMPLETED: {
-                type: 'DONE',
-                title: 'Tugas Selesai',
-                desc: `Anda telah menyelesaikan tugas: ${app.job.title} (+${app.job.hours} Jam)`
-            },
-            REJECTED: {
-                type: 'WARNING',
-                title: 'Lamaran Ditolak',
-                desc: `Mohon maaf, lamaran untuk ${app.job.title} tidak disetujui.`
-            }
-        };
-
-        const state = config[app.status] || config.PENDING;
-
-        return {
-            id: app.id,
-            ...state,
-            time: app.appliedAt.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })
-        };
-    });
-
-    if (cleanUser.totalHours > 20) {
-        activities.unshift({
-            id: 999,
-            type: 'WARNING',
-            title: 'Peringatan Kompen',
-            desc: `Sisa tanggungan Anda ${cleanUser.totalHours} jam. Segera selesaikan sebelum semester berakhir!`,
-            time: 'Hari ini'
-        });
-    }
-
-    return {
-        role: 'MAHASISWA',
-        user: { ...cleanUser, role: 'MAHASISWA' },
-        stats: {
-            completedHours,
-            activeJobs: activeApps.length,
-            activeJobTitle: activeApps[0]?.job.title
-        },
-        activities: activities.slice(0, 4)
-    };
 }
 
 export default async function DashboardPage() {
@@ -229,7 +156,6 @@ export default async function DashboardPage() {
 
     if (dashboardData.role === 'PENGAWAS') {
         const { supervisorStats, applications, acceptedApplications } = dashboardData;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const verifyingApplications = (dashboardData as any).verifyingApplications || [];
         return (
             <SupervisorDashboard

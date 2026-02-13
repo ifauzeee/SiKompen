@@ -1,0 +1,27 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./sikompen_v2.db:/app/sikompen_v2.db
+    env_file: .env
+    environment:
+      - PORT=8080
+      - DATABASE_URL_GO=sikompen_v2.db
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+    ports:
+      - "3001:3000"
+    env_file: .env
+    environment:
+      - PORT=3000
+    depends_on:
+      - backend

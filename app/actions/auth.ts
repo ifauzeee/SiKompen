@@ -1,11 +1,8 @@
 'use server'
 
-import { prisma } from '@/lib/prisma'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
-import { hashPassword, verifyPassword, needsRehash } from '@/lib/password'
 import { createSession, deleteSession, getSession } from '@/lib/session'
-import { User } from '@prisma/client'
 
 const LoginSchema = z.object({
     username: z.string().min(1, "Username wajib diisi"),
@@ -16,6 +13,8 @@ const ChangePasswordSchema = z.object({
     currentPassword: z.string().min(1),
     newPassword: z.string().min(6, "Password baru minimal 6 karakter")
 })
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
 
 export async function login(formData: FormData) {
     const rawData = {
@@ -32,40 +31,31 @@ export async function login(formData: FormData) {
 
     const { username, password } = validatedFields.data
 
-    const user = await prisma.user.findFirst({
-        where: {
-            OR: [
-                { username: username },
-                { nim: username }
-            ]
+    try {
+        const response = await fetch(`${API_URL}/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            return { error: data.error || 'Login gagal.' };
         }
-    })
 
-    if (!user) {
-        return { error: 'Username atau password salah.' }
+        await createSession({
+            userId: data.user.id,
+            role: data.user.role,
+            username: data.user.username,
+            token: data.token
+        });
+
+        redirect('/dashboard');
+    } catch (e) {
+        console.error('Login error:', e);
+        return { error: 'Gagal menghubungi server.' };
     }
-
-    const isValid = await verifyPassword(password, user.password)
-
-    if (!isValid) {
-        return { error: 'Username atau password salah.' }
-    }
-
-    if (needsRehash(user.password)) {
-        const newHash = await hashPassword(password)
-        await prisma.user.update({
-            where: { id: user.id },
-            data: { password: newHash }
-        })
-    }
-
-    await createSession({
-        userId: user.id,
-        role: user.role,
-        username: user.username
-    })
-
-    redirect('/dashboard')
 }
 
 export async function logout() {
@@ -77,53 +67,45 @@ export async function getSessionUser() {
     const session = await getSession()
     if (!session) return null
 
-    const user = await prisma.user.findUnique({
-        where: { id: session.userId }
-    })
+    try {
+        const response = await fetch(`${API_URL}/me`, {
+            headers: {
+                'Authorization': `Bearer ${session.token}`
+            }
+        });
 
-    if (!user) return null;
+        if (!response.ok) return null;
 
-    const { password: _password, ...safeUser } = user;
-    return safeUser as unknown as User;
+        return await response.json();
+    } catch {
+        return null;
+    }
 }
 
 export async function changePassword(currentPassword: string, newPassword: string) {
     const session = await getSession();
     if (!session) return { error: 'Unauthorized' };
 
-    const user = await prisma.user.findUnique({ where: { id: session.userId } });
-    if (!user) return { error: 'Unauthorized' };
-
     const validated = ChangePasswordSchema.safeParse({ currentPassword, newPassword });
     if (!validated.success) {
         return { error: validated.error.flatten().fieldErrors.newPassword?.[0] || "Input tidak valid" };
     }
 
-    const isValid = await verifyPassword(currentPassword, user.password);
-    if (!isValid) {
-        return { error: 'Password lama salah.' };
-    }
-
     try {
-        const hashedPassword = await hashPassword(newPassword);
-
-        await prisma.user.update({
-            where: { id: user.id },
-            data: { password: hashedPassword }
+        const response = await fetch(`${API_URL}/admin/users/${session.userId}/password`, {
+            method: 'PATCH', // Assumed endpoint or need to create one similarly
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.token}`
+            },
+            body: JSON.stringify({ currentPassword, newPassword })
         });
 
-        await prisma.activityLog.create({
-            data: {
-                userId: user.id,
-                action: 'CHANGE_PASSWORD',
-                targetType: 'USER',
-                targetId: user.id,
-                details: JSON.stringify({ username: user.username })
-            }
-        });
+        const data = await response.json();
+        if (!response.ok) return { error: data.error || 'Gagal mengubah password.' };
 
         return { success: true };
     } catch {
-        return { error: 'Gagal mengubah password.' };
+        return { error: 'Gagal menghubungi server.' };
     }
 }

@@ -1,18 +1,26 @@
-import { getSessionUser } from "@/app/actions/auth";
+import { getSession } from "@/lib/session";
 import { redirect } from "next/navigation";
 import SettingsClient from "./SettingsClient";
-import { prisma } from "@/lib/prisma";
 
 export const dynamic = 'force-dynamic';
 
-export default async function SettingsPage() {
-    const user = await getSessionUser();
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
 
-    if (!user || user.role !== 'ADMIN') {
+export default async function SettingsPage() {
+    const session = await getSession();
+
+    if (!session || session.role !== 'ADMIN') {
         redirect('/dashboard');
     }
 
-    const settings = await prisma.systemSettings.findMany();
+    const res = await fetch(`${API_URL}/admin/settings`, {
+        headers: {
+            'Authorization': `Bearer ${session.token}`
+        },
+        next: { revalidate: 0 }
+    });
+
+    const settings = res.ok ? await res.json() : [];
 
     const defaultSettings = [
         { key: 'semester_aktif', value: '2024/2025 Ganjil', description: 'Semester yang sedang aktif' },
@@ -21,7 +29,7 @@ export default async function SettingsPage() {
     ];
 
     const mergedSettings = defaultSettings.map(def => {
-        const existing = settings.find(s => s.key === def.key);
+        const existing = settings.find((s: any) => s.key === def.key);
         return existing || def;
     });
 

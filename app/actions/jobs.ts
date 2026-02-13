@@ -1,124 +1,126 @@
 "use server";
 
-import { prisma } from "@/lib/prisma";
-import { getSessionUser } from "./auth";
+import { getSession } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 
-export async function createJob(formData: FormData) {
-    const user = await getSessionUser();
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
 
-    if (!user || !['ADMIN', 'PENGAWAS'].includes(user.role)) {
+export async function createJob(formData: FormData) {
+    const session = await getSession();
+    if (!session || !['ADMIN', 'PENGAWAS'].includes(session.role)) {
         return { error: 'Unauthorized. Access required.' };
     }
 
-    const title = formData.get('title') as string;
-    const description = formData.get('description') as string;
-    const hours = parseInt(formData.get('hours') as string);
-    const quota = parseInt(formData.get('quota') as string);
+    const payload = {
+        title: formData.get('title') as string,
+        description: formData.get('description') as string,
+        hours: parseInt(formData.get('hours') as string),
+        quota: parseInt(formData.get('quota') as string),
+    };
 
-    if (!title || !description || !hours || !quota) {
+    if (!payload.title || !payload.description || !payload.hours || !payload.quota) {
         return { error: 'Semua kolom wajib diisi.' };
     }
 
     try {
-        await prisma.job.create({
-            data: {
-                title,
-                description,
-                hours,
-                quota,
-                category: 'UMUM',
-                status: 'OPEN',
-                createdById: user.id
-            }
+        const response = await fetch(`${API_URL}/jobs`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.token}`
+            },
+            body: JSON.stringify(payload)
         });
+
+        const data = await response.json();
+        if (!response.ok) return { error: data.error || 'Gagal membuat pekerjaan.' };
 
         revalidatePath('/dashboard');
         revalidatePath('/jobs');
         return { success: true };
     } catch (e) {
         console.error('Create Job Error:', e);
-        return { error: 'Gagal membuat pekerjaan.' };
+        return { error: 'Gagal menghubungi server.' };
     }
 }
 
 export async function deleteJob(jobId: number) {
-    const user = await getSessionUser();
-    if (!user || !['ADMIN', 'PENGAWAS'].includes(user.role)) return { error: 'Unauthorized' };
+    const session = await getSession();
+    if (!session || !['ADMIN', 'PENGAWAS'].includes(session.role)) return { error: 'Unauthorized' };
 
     try {
-        await prisma.$transaction(async (tx) => {
-            await tx.jobApplication.deleteMany({
-                where: { jobId }
-            });
-
-            await tx.job.delete({ where: { id: jobId } });
+        const response = await fetch(`${API_URL}/jobs/${jobId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${session.token}`
+            }
         });
+
+        const data = await response.json();
+        if (!response.ok) return { error: data.error || 'Gagal menghapus data.' };
 
         revalidatePath('/dashboard');
         revalidatePath('/dashboard/my-jobs');
         return { success: true };
     } catch (error) {
         console.error('Delete Job Error:', error);
-        return { error: 'Gagal menghapus data.' };
+        return { error: 'Gagal menghubungi server.' };
     }
 }
 
 export async function updateJob(id: number, formData: FormData) {
-    const user = await getSessionUser();
-    if (!user || !['ADMIN', 'PENGAWAS'].includes(user.role)) {
+    const session = await getSession();
+    if (!session || !['ADMIN', 'PENGAWAS'].includes(session.role)) {
         return { error: 'Unauthorized' };
     }
 
-    const title = formData.get('title') as string;
-    const description = formData.get('description') as string;
-    const hours = parseInt(formData.get('hours') as string);
-    const quota = parseInt(formData.get('quota') as string);
-
-    if (!title || !description || !hours || !quota) {
-        return { error: 'Semua kolom wajib diisi.' };
-    }
+    const payload = {
+        title: formData.get('title') as string,
+        description: formData.get('description') as string,
+        hours: parseInt(formData.get('hours') as string),
+        quota: parseInt(formData.get('quota') as string),
+    };
 
     try {
-        const existingJob = await prisma.job.findUnique({
-            where: { id },
-            include: { _count: { select: { applications: true } } }
+        const response = await fetch(`${API_URL}/jobs/${id}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.token}`
+            },
+            body: JSON.stringify(payload)
         });
 
-        if (existingJob && existingJob._count.applications > 0 && existingJob.hours !== hours) {
-            return { error: 'Tidak dapat mengubah jam kompen karena sudah ada pelamar. Silahkan tolak pelamar terlebih dahulu atau buat lowongan baru.' };
-        }
+        const data = await response.json();
+        if (!response.ok) return { error: data.error || 'Gagal mengupdate pekerjaan.' };
 
-        await prisma.job.update({
-            where: { id },
-            data: {
-                title, description, hours, quota
-            }
-        });
         revalidatePath('/dashboard/my-jobs');
         revalidatePath('/jobs');
         return { success: true };
     } catch {
-        return { error: 'Gagal mengupdate pekerjaan.' };
+        return { error: 'Gagal menghubungi server.' };
     }
 }
 
 export async function toggleJobStatus(jobId: number, currentStatus: string) {
-    const user = await getSessionUser();
-    if (!user || !['ADMIN', 'PENGAWAS'].includes(user.role)) return { error: 'Unauthorized' };
+    const session = await getSession();
+    if (!session || !['ADMIN', 'PENGAWAS'].includes(session.role)) return { error: 'Unauthorized' };
 
     try {
-        const newStatus = currentStatus === 'OPEN' ? 'CLOSED' : 'OPEN';
-
-        await prisma.job.update({
-            where: { id: jobId },
-            data: { status: newStatus }
+        const response = await fetch(`${API_URL}/jobs/${jobId}/status`, {
+            method: 'PATCH',
+            headers: {
+                'Authorization': `Bearer ${session.token}`
+            }
         });
+
+        const data = await response.json();
+        if (!response.ok) return { error: data.error || 'Gagal mengubah status.' };
 
         revalidatePath('/dashboard/my-jobs');
         revalidatePath('/jobs');
-        return { success: true, newStatus };
+        return { success: true, newStatus: data.status };
     } catch {
-        return { error: 'Gagal mengubah status.' };
+        return { error: 'Gagal menghubungi server.' };
     }
 }

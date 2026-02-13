@@ -1,0 +1,36 @@
+# Build stage
+FROM golang:1.24-alpine AS builder
+
+# Install dependencies for CGO (SQLite)
+RUN apk add --no-cache gcc musl-dev
+
+WORKDIR /app
+
+# Cache dependencies
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source code
+COPY . .
+
+# Build the binary with optimizations
+# -s -w: Omit the symbol table and debug information
+RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w" -o main ./cmd/api/main.go
+
+# Run stage
+FROM alpine:3.20
+
+# Install ca-certificates and sqlite for runtime
+RUN apk add --no-cache ca-certificates tzdata
+
+WORKDIR /app
+
+# Copy the binary
+COPY --from=builder /app/main .
+
+# We recommend passing environment variables through docker-compose or your orchestrator
+# instead of copying .env files into the image.
+
+EXPOSE 8080
+
+CMD ["./main"]

@@ -8,7 +8,7 @@ import { deleteJob, toggleJobStatus } from "@/app/actions/jobs";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import DeleteModal from "@/components/DeleteModal";
-import { Job } from "@prisma/client";
+import { Job } from "@/types";
 import { Loader2 } from "lucide-react";
 
 export default function MyJobsClient({ jobs }: { jobs: (Job & { _count: { applications: number }, status: string })[] }) {

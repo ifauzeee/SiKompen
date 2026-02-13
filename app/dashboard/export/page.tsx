@@ -1,24 +1,32 @@
-import { getSessionUser } from "@/app/actions/auth";
+import { getSession } from "@/lib/session";
 import { redirect } from "next/navigation";
 import ExportClient from "./ExportClient";
-import { prisma } from "@/lib/prisma";
 
 export const dynamic = 'force-dynamic';
 
-export default async function ExportPage() {
-    const user = await getSessionUser();
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
 
-    if (!user || user.role !== 'ADMIN') {
+export default async function ExportPage() {
+    const session = await getSession();
+
+    if (!session || session.role !== 'ADMIN') {
         redirect('/dashboard');
     }
 
-    const students = await prisma.user.findMany({
-        where: { role: 'MAHASISWA' },
-        select: { prodi: true, kelas: true }
+    const res = await fetch(`${API_URL}/admin/users`, {
+        headers: {
+            'Authorization': `Bearer ${session.token}`
+        },
+        next: { revalidate: 0 }
     });
 
-    const prodis = [...new Set(students.map(s => s.prodi).filter(Boolean))] as string[];
-    const kelasList = [...new Set(students.map(s => s.kelas).filter(Boolean))] as string[];
+    if (!res.ok) return <div>Gagal mengambil data export.</div>;
+
+    const allUsers = await res.json();
+    const students = allUsers.filter((u: any) => u.role === 'MAHASISWA');
+
+    const prodis = [...new Set(students.map((s: any) => s.prodi).filter(Boolean))] as string[];
+    const kelasList = [...new Set(students.map((s: any) => s.kelas).filter(Boolean))] as string[];
 
     return <ExportClient prodis={prodis} kelasList={kelasList} />;
 }

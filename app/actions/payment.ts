@@ -1,6 +1,5 @@
 "use server";
 
-import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getSession } from "@/lib/session";
@@ -13,44 +12,31 @@ const CreatePaymentSchema = z.object({
     note: z.string().optional()
 });
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+
 export async function createPayment(userId: number, amount: number, hoursEquivalent: number, proofUrl: string, note?: string) {
     const session = await getSession();
     if (!session) return { error: "Unauthorized" };
 
-    if (session.userId !== userId && session.role !== 'ADMIN' && session.role !== 'KEUANGAN') {
-        return { error: "Unauthorized: Anda tidak dapat membuat pembayaran untuk user lain." };
-    }
-
-    const validation = CreatePaymentSchema.safeParse({ userId, amount, hoursEquivalent, proofUrl, note });
-    if (!validation.success) {
-        return { error: validation.error.flatten().fieldErrors.amount?.[0] || "Data tidak valid" };
-    }
+    const payload = { userId, amount, hoursEquivalent, proofUrl, note };
 
     try {
-        await prisma.payment.create({
-            data: {
-                userId,
-                amount,
-                hoursEquivalent,
-                proofUrl,
-                note,
-                status: 'PENDING'
-            }
+        const response = await fetch(`${API_URL}/payments`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.token}`
+            },
+            body: JSON.stringify(payload)
         });
 
-        await prisma.activityLog.create({
-            data: {
-                userId: session.userId,
-                action: "CREATE_PAYMENT",
-                targetType: "PAYMENT",
-                details: `Payment of Rp ${amount} for User ${userId}`
-            }
-        });
+        const data = await response.json();
+        if (!response.ok) return { error: data.error || "Gagal membuat pembayaran" };
 
         revalidatePath('/dashboard/finance');
         return { success: true };
-    } catch (_error) {
-        return { error: "Gagal membuat pembayaran" };
+    } catch (error) {
+        return { error: "Gagal menghubungi server" };
     }
 }
 
@@ -58,64 +44,22 @@ export async function verifyPayment(paymentId: number, status: 'APPROVED' | 'REJ
     const session = await getSession();
     if (!session) return { error: "Unauthorized" };
 
-    const ALLOWED_ROLES = ['ADMIN', 'KEUANGAN'];
-    if (!ALLOWED_ROLES.includes(session.role)) {
-        console.error(`Security Alert: Unauthorized payment verification attempt by User ${session.userId}`);
-        return { error: "Access Denied: Requires KEUANGAN or ADMIN role." };
-    }
-
     try {
-        const payment = await prisma.payment.findUnique({
-            where: { id: paymentId },
-            include: { user: true }
+        const response = await fetch(`${API_URL}/payments/${paymentId}/verify`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.token}`
+            },
+            body: JSON.stringify({ status })
         });
 
-        if (!payment) return { error: "Payment not found" };
-
-        if (status === 'APPROVED') {
-            const currentHours = payment.user.totalHours;
-            const newHours = Math.max(0, currentHours - payment.hoursEquivalent);
-
-            await prisma.$transaction([
-                prisma.payment.update({
-                    where: { id: paymentId },
-                    data: { status: 'APPROVED' }
-                }),
-                prisma.user.update({
-                    where: { id: payment.userId },
-                    data: { totalHours: newHours }
-                }),
-                prisma.activityLog.create({
-                    data: {
-                        userId: session.userId,
-                        action: "PAYMENT_APPROVED",
-                        targetType: "PAYMENT",
-                        targetId: paymentId,
-                        details: `Approved by ${session.username}. Paid off ${payment.hoursEquivalent} hours.`
-                    }
-                })
-            ]);
-        } else {
-            await prisma.$transaction([
-                prisma.payment.update({
-                    where: { id: paymentId },
-                    data: { status: 'REJECTED' }
-                }),
-                prisma.activityLog.create({
-                    data: {
-                        userId: session.userId,
-                        action: "PAYMENT_REJECTED",
-                        targetType: "PAYMENT",
-                        targetId: paymentId,
-                        details: `Rejected by ${session.username}.`
-                    }
-                })
-            ]);
-        }
+        const data = await response.json();
+        if (!response.ok) return { error: data.error || "Gagal memverifikasi pembayaran" };
 
         revalidatePath('/dashboard/finance');
         return { success: true };
-    } catch (_error) {
-        return { error: "Gagal memverifikasi pembayaran" };
+    } catch (error) {
+        return { error: "Gagal menghubungi server" };
     }
 }
