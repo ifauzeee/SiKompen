@@ -37,8 +37,8 @@ func (h *StatsHandler) GetDashboardData(c *gin.Context) {
 		if cached, err := utils.GetCache(cacheKey); err == nil {
 			if json.Unmarshal([]byte(cached), &stats) == nil {
 				topDebtors, _ := h.Repos.User.GetAll(map[string]interface{}{
-					"role":        "MAHASISWA",
-					"total_hours": "> 0",
+					"role":            "MAHASISWA",
+					"total_hours > ?": 0,
 				})
 
 				c.JSON(http.StatusOK, gin.H{
@@ -63,8 +63,8 @@ func (h *StatsHandler) GetDashboardData(c *gin.Context) {
 		}
 
 		topDebtors, _ := h.Repos.User.GetAll(map[string]interface{}{
-			"role":        "MAHASISWA",
-			"total_hours": "> 0",
+			"role":            "MAHASISWA",
+			"total_hours > ?": 0,
 		})
 
 		c.JSON(http.StatusOK, gin.H{
