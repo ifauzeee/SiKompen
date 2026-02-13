@@ -36,10 +36,8 @@ func (h *StatsHandler) GetDashboardData(c *gin.Context) {
 
 		if cached, err := utils.GetCache(cacheKey); err == nil {
 			if json.Unmarshal([]byte(cached), &stats) == nil {
-				topDebtors, _ := h.Repos.User.GetAll(map[string]interface{}{
-					"role":            "MAHASISWA",
-					"total_hours > ?": 0,
-				})
+				var topDebtors []models.User
+				h.Repos.User.DB().Where("role = ? AND total_hours > 0", "MAHASISWA").Limit(5).Find(&topDebtors)
 
 				c.JSON(http.StatusOK, gin.H{
 					"role":       "ADMIN",
@@ -62,10 +60,8 @@ func (h *StatsHandler) GetDashboardData(c *gin.Context) {
 			utils.SetCache(cacheKey, string(statsJson), 10*time.Minute)
 		}
 
-		topDebtors, _ := h.Repos.User.GetAll(map[string]interface{}{
-			"role":            "MAHASISWA",
-			"total_hours > ?": 0,
-		})
+		var topDebtors []models.User
+		h.Repos.User.DB().Where("role = ? AND total_hours > 0", "MAHASISWA").Limit(5).Find(&topDebtors)
 
 		c.JSON(http.StatusOK, gin.H{
 			"role":       "ADMIN",
@@ -132,7 +128,8 @@ func (h *StatsHandler) GetFinanceData(c *gin.Context) {
 
 	payments, _ := h.Repos.Payment.GetAll(map[string]interface{}{"status": "PENDING"})
 	history, _ := h.Repos.Payment.GetAll(nil)
-	debtors, _ := h.Repos.User.GetAll(map[string]interface{}{"role": "MAHASISWA", "total_hours": "> 0"})
+	var debtors []models.User
+	h.Repos.User.DB().Where("role = ? AND total_hours > 0", "MAHASISWA").Find(&debtors)
 
 	c.JSON(http.StatusOK, gin.H{
 		"stats": gin.H{

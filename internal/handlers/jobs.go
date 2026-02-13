@@ -63,10 +63,7 @@ func (h *JobHandler) GetJobs(c *gin.Context) {
 	if cached, err := utils.GetCache(cacheKey); err == nil {
 		var jobs []models.Job
 		if json.Unmarshal([]byte(cached), &jobs) == nil {
-			c.JSON(http.StatusOK, gin.H{
-				"jobs":       jobs,
-				"from_cache": true,
-			})
+			c.JSON(http.StatusOK, jobs)
 			return
 		}
 	}
