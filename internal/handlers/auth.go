@@ -21,8 +21,8 @@ func NewAuthHandler(userRepo repository.UserRepository) *AuthHandler {
 }
 
 type LoginRequest struct {
-	Username string `json:"username" binding:"required"`
-	Password string `json:"password" binding:"required"`
+	Identifier string `json:"username" binding:"required"`
+	Password   string `json:"password" binding:"required"`
 }
 
 func (h *AuthHandler) Login(c *gin.Context) {
@@ -34,8 +34,8 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	var user *models.User
 	var err error
-	if user, err = h.UserRepo.GetByUsername(req.Username); err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid username or password"})
+	if user, err = h.UserRepo.GetByUsername(req.Identifier); err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Identitas atau password salah"})
 		return
 	}
 

@@ -68,7 +68,7 @@ export default function LoginPage() {
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.1),transparent_50%)]" />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(0,0,0,0.1),transparent_50%)]" />
 
-        <div className="absolute top-[-10%] right-[-10%] h-[500px] w-[500px] rounded-full border-[60px] border-white/5 blur-sm" />
+        <div className="absolute top-[-10%] right-[-10%] h-[500px] w-[500px] rounded-full border-60 border-white/5 blur-sm" />
         <div className="absolute bottom-[-10%] left-[-10%] h-[600px] w-[600px] rounded-full bg-white/5 blur-3xl" />
 
         <div className="relative z-10 max-w-2xl p-16 text-white">
@@ -118,7 +118,7 @@ export default function LoginPage() {
 
           {errorMsg && (
             <div className="input-group animate-in fade-in slide-in-from-top-2 mb-8 flex items-center gap-3 rounded-2xl border border-red-100 bg-red-50 p-4 text-red-600 duration-300">
-              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">
+              <div className="shrink-0 flex h-10 w-10 items-center justify-center rounded-full bg-red-100 text-red-600">
                 <AlertCircle size={20} />
               </div>
               <div>
@@ -143,7 +143,7 @@ export default function LoginPage() {
                   id="username"
                   required
                   className="[&:-webkit-autofill]:-webkit-text-fill-color-black w-full rounded-2xl border-2 border-gray-100 bg-gray-50 px-5 py-4 font-medium text-gray-900 placeholder-gray-400 transition-all duration-300 outline-none focus:border-[#008C9D] focus:bg-white focus:ring-4 focus:ring-[#008C9D]/10 [&:-webkit-autofill]:shadow-[0_0_0_1000px_white_inset]"
-                  placeholder="Masukkan username atau NIM"
+                  placeholder="Masukkan NIM atau Username"
                 />
               </div>
             </div>

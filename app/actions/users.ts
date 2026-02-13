@@ -16,7 +16,6 @@ export async function createUser(formData: FormData) {
 
   const payload = {
     name: formData.get("name") as string,
-    username: formData.get("username") as string,
     password: formData.get("password") as string,
     role: formData.get("role") as string,
     nim: (formData.get("nim") as string)?.trim() || "",

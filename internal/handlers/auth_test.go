@@ -70,7 +70,7 @@ func TestLogin_Success(t *testing.T) {
 	r := setupRouter()
 	r.POST("/api/login", handler.Login)
 
-	body, _ := json.Marshal(LoginRequest{Username: "admin", Password: "password123"})
+	body, _ := json.Marshal(LoginRequest{Identifier: "admin", Password: "password123"})
 	req, _ := http.NewRequest("POST", "/api/login", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -107,7 +107,7 @@ func TestLogin_InvalidPassword(t *testing.T) {
 	r := setupRouter()
 	r.POST("/api/login", handler.Login)
 
-	body, _ := json.Marshal(LoginRequest{Username: "admin", Password: "wrong"})
+	body, _ := json.Marshal(LoginRequest{Identifier: "admin", Password: "wrong"})
 	req, _ := http.NewRequest("POST", "/api/login", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -125,7 +125,7 @@ func TestLogin_UserNotFound(t *testing.T) {
 	r := setupRouter()
 	r.POST("/api/login", handler.Login)
 
-	body, _ := json.Marshal(LoginRequest{Username: "nonexistent", Password: "pass"})
+	body, _ := json.Marshal(LoginRequest{Identifier: "nonexistent", Password: "pass"})
 	req, _ := http.NewRequest("POST", "/api/login", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()

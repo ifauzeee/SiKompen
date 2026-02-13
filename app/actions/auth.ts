@@ -11,7 +11,7 @@ const LoginSchema = z.object({
 
 const ChangePasswordSchema = z.object({
   currentPassword: z.string().min(1),
-  newPassword: z.string().min(6, "Password baru minimal 6 karakter"),
+  newPassword: z.string().min(3, "Password baru minimal 3 karakter"),
 });
 
 const API_URL =

@@ -19,14 +19,13 @@ func NewUserHandler(userRepo repository.UserRepository) *UserHandler {
 }
 
 type CreateUserRequest struct {
-	Name       string `json:"name" binding:"required"`
-	Username   string `json:"username" binding:"required"`
-	Password   string `json:"password" binding:"required,min=3"`
-	Role       string `json:"role" binding:"required,oneof=MAHASISWA ADMIN KEUANGAN PENGAWAS"`
-	NIM        string `json:"nim"`
-	Prodi      string `json:"prodi"`
-	Kelas      string `json:"kelas"`
-	TotalHours int    `json:"totalHours"`
+	Name       string  `json:"name" binding:"required"`
+	Role       string  `json:"role" binding:"required,oneof=MAHASISWA ADMIN KEUANGAN PENGAWAS"`
+	NIM        *string `json:"nim"`
+	Prodi      *string `json:"prodi"`
+	Kelas      *string `json:"kelas"`
+	TotalHours int     `json:"totalHours"`
+	Password   string  `json:"password" binding:"required,min=3"`
 }
 
 func (h *UserHandler) CreateUser(c *gin.Context) {
@@ -36,8 +35,18 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 		return
 	}
 
-	if _, err := h.UserRepo.GetByUsername(req.Username); err == nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Username already exists"})
+	username := ""
+	if req.Role == "ADMIN" {
+		username = "admin"
+	} else if req.NIM != nil && *req.NIM != "" {
+		username = *req.NIM
+	} else {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "NIM is required for non-admin users"})
+		return
+	}
+
+	if _, err := h.UserRepo.GetByUsername(username); err == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "User with this identifier already exists"})
 		return
 	}
 
@@ -45,12 +54,12 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 
 	user := models.User{
 		Name:           &req.Name,
-		Username:       req.Username,
+		Username:       username,
 		Password:       string(hashedPassword),
 		Role:           req.Role,
-		NIM:            &req.NIM,
-		Prodi:          &req.Prodi,
-		Kelas:          &req.Kelas,
+		NIM:            req.NIM,
+		Prodi:          req.Prodi,
+		Kelas:          req.Kelas,
 		TotalHours:     req.TotalHours,
 		IsLibraryClear: true,
 		IsAdminClear:   true,

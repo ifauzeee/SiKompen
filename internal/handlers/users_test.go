@@ -22,9 +22,10 @@ func TestCreateUser_Success(t *testing.T) {
 		c.Set("role", "ADMIN")
 	}, handler.CreateUser)
 
+	nim := "student1"
 	body, _ := json.Marshal(CreateUserRequest{
 		Name:     "New Student",
-		Username: "student1",
+		NIM:      &nim,
 		Password: "password123",
 		Role:     "MAHASISWA",
 	})
@@ -51,9 +52,10 @@ func TestCreateUser_DuplicateUsername(t *testing.T) {
 		c.Set("role", "ADMIN")
 	}, handler.CreateUser)
 
+	nim2 := "existing"
 	body, _ := json.Marshal(CreateUserRequest{
 		Name:     "Duplicate",
-		Username: "existing",
+		NIM:      &nim2,
 		Password: "password123",
 		Role:     "MAHASISWA",
 	})

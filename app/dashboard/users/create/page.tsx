@@ -10,7 +10,6 @@ import {
   AlertCircle,
   Building,
   BookOpen,
-  UserCircle,
   Wallet,
 } from "lucide-react";
 import Link from "next/link";
@@ -108,20 +107,6 @@ export default function CreateUserPage() {
           <div className="grid grid-cols-1 gap-8 pt-2 md:grid-cols-2">
             <div className="space-y-2">
               <label className="flex items-center gap-2 text-sm font-bold tracking-wider text-gray-500 uppercase">
-                <UserCircle size={16} />
-                Username
-              </label>
-              <input
-                type="text"
-                name="username"
-                placeholder="Username atau NIM"
-                required
-                className="w-full rounded-2xl border border-gray-200 bg-white px-6 py-4 font-bold text-gray-900 transition-all outline-none focus:border-[#008C9D] focus:ring-4 focus:ring-[#008C9D]/10"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="flex items-center gap-2 text-sm font-bold tracking-wider text-gray-500 uppercase">
                 <Lock size={16} />
                 Password Default
               </label>
@@ -150,7 +135,7 @@ export default function CreateUserPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="flex items-center gap-2 text-sm font-bold tracking-wider text-gray-500 text-red-500 uppercase">
+                  <label className="flex items-center gap-2 text-sm font-bold tracking-wider text-red-500 uppercase">
                     Total Hutang (Jam)
                   </label>
                   <input

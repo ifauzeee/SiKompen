@@ -331,7 +331,7 @@ export default function UserManagementClient({ users }: { users: User[] }) {
             />
           </div>
 
-          <div className="overflow-hidden overflow-x-auto rounded-[2rem] border border-gray-100 bg-white shadow-sm">
+          <div className="overflow-hidden overflow-x-auto rounded-4xl border border-gray-100 bg-white shadow-sm">
             <table className="w-full text-left">
               <thead className="border-b border-gray-100 bg-gray-50">
                 <tr>
@@ -371,23 +371,24 @@ export default function UserManagementClient({ users }: { users: User[] }) {
                             <p className="font-bold text-gray-900">
                               {user.name}
                             </p>
-                            <p className="text-sm text-gray-400">
-                              @{user.username}
-                            </p>
+                            {user.role === "ADMIN" && (
+                              <p className="text-sm text-gray-400">
+                                @{user.username}
+                              </p>
+                            )}
                           </div>
                         </div>
                       </td>
                       <td className="p-6">
                         <span
-                          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold ${
-                            user.role === "ADMIN"
-                              ? "border-[#008C9D]/20 bg-[#008C9D]/10 text-[#008C9D]"
-                              : user.role === "PENGAWAS"
-                                ? "border-blue-100 bg-blue-50 text-blue-600"
-                                : user.role === "KEUANGAN"
-                                  ? "border-purple-100 bg-purple-50 text-purple-600"
-                                  : "border-red-100 bg-red-50 text-[#CE2029]"
-                          }`}
+                          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold ${user.role === "ADMIN"
+                            ? "border-[#008C9D]/20 bg-[#008C9D]/10 text-[#008C9D]"
+                            : user.role === "PENGAWAS"
+                              ? "border-blue-100 bg-blue-50 text-blue-600"
+                              : user.role === "KEUANGAN"
+                                ? "border-purple-100 bg-purple-50 text-purple-600"
+                                : "border-red-100 bg-red-50 text-[#CE2029]"
+                            }`}
                         >
                           {user.role === "ADMIN" && <Shield size={12} />}
                           {user.role === "PENGAWAS" && <UserIcon size={12} />}
