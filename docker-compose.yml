@@ -12,6 +12,9 @@ services:
     env_file: .env
     environment:
       - PORT=8080
+      - DATABASE_URL_GO=postgres://postgres:postgres@db:5432/sikompen?sslmode=disable
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     depends_on:
       - db
       - redis

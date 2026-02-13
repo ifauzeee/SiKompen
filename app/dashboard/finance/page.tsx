@@ -28,7 +28,7 @@ export default async function FinancePage() {
   }
 
   const [statsRes, trendData] = await Promise.all([
-    fetch(`${API_URL}/finance/stats`, {
+    fetch(`${API_URL}/dashboard/finance`, {
       headers: { Authorization: `Bearer ${session.token}` },
       next: { revalidate: 0 },
     }),
