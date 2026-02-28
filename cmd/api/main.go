@@ -6,6 +6,7 @@ import (
 	"sikompen-backend/internal/handlers"
 	"sikompen-backend/internal/middleware"
 	"sikompen-backend/internal/repository"
+	"sikompen-backend/internal/services"
 	"sikompen-backend/internal/utils"
 	"strings"
 
@@ -27,7 +28,8 @@ func main() {
 	db := repository.InitDB(dbURL)
 	repos := repository.NewRepositories(db)
 
-	authHandler := handlers.NewAuthHandler(repos.User)
+	authService := services.NewAuthService(repos.User)
+	authHandler := handlers.NewAuthHandler(authService)
 	userHandler := handlers.NewUserHandler(repos.User)
 	jobHandler := handlers.NewJobHandler(repos.Job, repos.Application)
 	appHandler := handlers.NewApplicationHandler(repos.Application, repos.Job, repos.User, repos.Admin, repos.Notification, db)
