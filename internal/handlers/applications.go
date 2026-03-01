@@ -107,7 +107,7 @@ func (h *ApplicationHandler) UpdateStatus(c *gin.Context) {
 
 	var req UpdateAppStatusRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"errors": utils.FormatValidationError(err)})
 		return
 	}
 

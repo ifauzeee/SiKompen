@@ -34,7 +34,7 @@ func (h *AdminHandler) UpdateStudentHours(c *gin.Context) {
 
 	var req UpdateHoursRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"errors": utils.FormatValidationError(err)})
 		return
 	}
 
@@ -104,7 +104,7 @@ func (h *AdminHandler) UpdateSystemSetting(c *gin.Context) {
 	key := c.Param("key")
 	var req UpdateSettingRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"errors": utils.FormatValidationError(err)})
 		return
 	}
 
@@ -149,7 +149,7 @@ type StudentImport struct {
 func (h *AdminHandler) ImportStudents(c *gin.Context) {
 	var students []StudentImport
 	if err := c.ShouldBindJSON(&students); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"errors": utils.FormatValidationError(err)})
 		return
 	}
 

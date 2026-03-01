@@ -31,7 +31,7 @@ type JobRequest struct {
 func (h *JobHandler) CreateJob(c *gin.Context) {
 	var req JobRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"errors": utils.FormatValidationError(err)})
 		return
 	}
 
@@ -91,7 +91,7 @@ func (h *JobHandler) UpdateJob(c *gin.Context) {
 
 	var req JobRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"errors": utils.FormatValidationError(err)})
 		return
 	}
 

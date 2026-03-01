@@ -101,7 +101,7 @@ func (h *PaymentHandler) VerifyPayment(c *gin.Context) {
 
 	var req VerifyPaymentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"errors": utils.FormatValidationError(err)})
 		return
 	}
 

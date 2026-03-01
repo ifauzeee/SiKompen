@@ -3,15 +3,18 @@ package main
 import (
 	"log"
 	"os"
+	"strings"
+
+	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
+
 	"sikompen-backend/internal/handlers"
 	"sikompen-backend/internal/middleware"
 	"sikompen-backend/internal/repository"
 	"sikompen-backend/internal/services"
 	"sikompen-backend/internal/utils"
-	"strings"
-
-	"github.com/gin-gonic/gin"
-	"github.com/joho/godotenv"
 )
 
 func main() {
@@ -25,6 +28,7 @@ func main() {
 
 	utils.InitRedis()
 	utils.InitSSE()
+
 	db := repository.InitDB(dbURL)
 	repos := repository.NewRepositories(db)
 
@@ -45,6 +49,7 @@ func main() {
 	if allowedOrigins == "" {
 		allowedOrigins = "http://localhost:3000"
 	}
+
 	r.Use(func(c *gin.Context) {
 		origin := c.GetHeader("Origin")
 		for _, allowed := range strings.Split(allowedOrigins, ",") {
@@ -56,6 +61,7 @@ func main() {
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(204)
 			return
@@ -64,6 +70,7 @@ func main() {
 	})
 
 	r.Static("/uploads", "./uploads")
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	api := r.Group("/api")
 	{
@@ -77,7 +84,6 @@ func main() {
 			protected.GET("/dashboard/stats", statsHandler.GetDashboardData)
 			protected.GET("/dashboard/trends", trendHandler.GetCompensationTrend)
 			protected.GET("/dashboard/finance", statsHandler.GetFinanceData)
-
 			protected.PATCH("/users/password", userHandler.ChangePassword)
 
 			protected.GET("/jobs", jobHandler.GetJobs)
