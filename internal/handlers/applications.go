@@ -263,17 +263,37 @@ func (h *ApplicationHandler) SubmitProof(c *gin.Context) {
 	}
 
 	for i, file := range files {
+		hashStr, err := utils.CalculateFileHash(file)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process file"})
+			return
+		}
+
+		var count int64
+		h.DB.Model(&models.JobApplication{}).
+			Where("(proof_hash1 = ? OR proof_hash2 = ?) AND id != ?", hashStr, hashStr, app.ID).
+			Count(&count)
+
+		if count > 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "File bukti pengerjaan sudah pernah digunakan. Tindakan kecurangan tidak diperbolehkan!"})
+			return
+		}
+
 		filename, err := utils.SaveUpload(file, "uploads/proofs")
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file"})
 			return
 		}
 		path := "/uploads/proofs/" + filename
+
+		hashPtr := hashStr
 		switch i {
 		case 0:
 			app.ProofImage1 = &path
+			app.ProofHash1 = &hashPtr
 		case 1:
 			app.ProofImage2 = &path
+			app.ProofHash2 = &hashPtr
 		}
 	}
 

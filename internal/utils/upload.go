@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -8,6 +10,21 @@ import (
 	"path/filepath"
 	"time"
 )
+
+func CalculateFileHash(file *multipart.FileHeader) (string, error) {
+	src, err := file.Open()
+	if err != nil {
+		return "", err
+	}
+	defer src.Close()
+
+	hash := sha256.New()
+	if _, err := io.Copy(hash, src); err != nil {
+		return "", err
+	}
+
+	return hex.EncodeToString(hash.Sum(nil)), nil
+}
 
 func SaveUpload(file *multipart.FileHeader, folder string) (string, error) {
 	if err := os.MkdirAll(folder, 0755); err != nil {

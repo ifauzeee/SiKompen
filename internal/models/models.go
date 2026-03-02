@@ -53,7 +53,9 @@ type JobApplication struct {
 	AppliedAt      time.Time `gorm:"default:CURRENT_TIMESTAMP" json:"appliedAt"`
 	UpdatedAt      time.Time `json:"updatedAt"`
 	ProofImage1    *string   `json:"proofImage1"`
+	ProofHash1     *string   `gorm:"uniqueIndex:idx_proof_hash" json:"-"`
 	ProofImage2    *string   `json:"proofImage2"`
+	ProofHash2     *string   `gorm:"uniqueIndex:idx_proof_hash_2" json:"-"`
 	SubmissionNote *string   `json:"submissionNote"`
 	User           User      `gorm:"foreignKey:UserID" json:"user,omitempty"`
 	Job            Job       `gorm:"foreignKey:JobID" json:"job,omitempty"`
@@ -92,6 +94,7 @@ type Payment struct {
 	Amount          float64   `gorm:"not null" json:"amount"`
 	HoursEquivalent int       `gorm:"not null" json:"hoursEquivalent"`
 	ProofURL        *string   `json:"proofUrl"`
+	ProofHash       *string   `gorm:"uniqueIndex:idx_payment_proof_hash" json:"-"`
 	Status          string    `gorm:"default:'PENDING'" json:"status"`
 	Note            *string   `json:"note"`
 	CreatedAt       time.Time `gorm:"default:CURRENT_TIMESTAMP" json:"createdAt"`

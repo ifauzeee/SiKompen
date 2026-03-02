@@ -56,6 +56,19 @@ func (h *PaymentHandler) CreatePayment(c *gin.Context) {
 		return
 	}
 
+	hashStr, err := utils.CalculateFileHash(file)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process proof file"})
+		return
+	}
+
+	var count int64
+	h.DB.Model(&models.Payment{}).Where("proof_hash = ?", hashStr).Count(&count)
+	if count > 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "File bukti pembayaran ini sudah pernah digunakan. Dilarang menggunakan bukti berulang!"})
+		return
+	}
+
 	filename, err := utils.SaveUpload(file, "uploads/payments")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save proof file"})
@@ -70,6 +83,7 @@ func (h *PaymentHandler) CreatePayment(c *gin.Context) {
 		Amount:          amount,
 		HoursEquivalent: hours,
 		ProofURL:        &proofPath,
+		ProofHash:       &hashStr,
 		Note:            &note,
 		Status:          "PENDING",
 		CreatedAt:       time.Now(),
